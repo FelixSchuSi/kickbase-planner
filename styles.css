@@ -16,21 +16,26 @@ body {
     overflow: hidden;
 }
 
-.content {
-    max-width: 1200px;
+.content, .header {
+    max-width: 800px;
     margin: 0 auto;
-    padding: 30px;
+}
+
+.header-fullwidth-wrapper {
+    width: 100%;
+    background: linear-gradient(135deg, #232526 0%, #414345 100%);
+    padding: 0;
 }
 
 .header {
-    background: linear-gradient(135deg, #232526 0%, #414345 100%);
     color: white;
-    padding: 30px;
+    padding: 8px;
+    gap: 8px;
     text-align: center;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 15px;
+    justify-content: space-between;
 }
 
 .header h1 {
@@ -42,8 +47,13 @@ body {
     opacity: 0.9;
 }
 
+h1 {
+    flex-shrink: 0;
+}
+
 .header .league-selector {
     margin: 0;
+    flex-shrink: 2;
 }
 
 .header .league-selector label {
@@ -60,11 +70,7 @@ body {
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.9);
     color: #333;
-    min-width: 150px;
-}
-
-.content {
-    padding: 30px;
+    width: 100%;
 }
 
 .error {
@@ -79,8 +85,8 @@ body {
 .badge-row {
     display: flex;
     gap: 8px;
-    margin-bottom: 20px;
     flex-wrap: wrap;
+    padding: 8px;
 }
 
 .stat-badge {
@@ -164,17 +170,38 @@ body {
     font-weight: 600;
 }
 
-.stat-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 10px;
-    border-radius: 6px;
-    text-align: center;
+.stat-badge.value-badge {
+    background: #f5f5f5;
+    border-color: #e0e0e0;
+    padding: 4px 10px;
+}
+
+.value-stack {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    min-height: 60px;
+    align-items: flex-start;
+    gap: 0;
+    line-height: 1.2;
+}
+
+.value-stack .badge-value.diff {
+    font-size: 0.7rem;
+    font-weight: 500;
+    line-height: 1.1;
+}
+
+.value-stack .badge-value.diff.positive {
+    color: #4caf50;
+}
+
+.value-stack .badge-value.diff.negative {
+    color: #f44336;
+}
+
+.value-stack .badge-value.current {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #333;
 }
 
 .stat-label {
@@ -249,11 +276,6 @@ body {
     margin-bottom: 4px;
 }
 
-.market-value {
-    font-family: 'Courier New', monospace;
-    font-weight: 600;
-}
-
 .info-box {
     background: #e3f2fd;
     color: #1565c0;
@@ -266,7 +288,6 @@ body {
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 20px;
 }
 
 th, td {
@@ -288,7 +309,6 @@ tr:hover {
 }
 
 .currency {
-    font-family: 'Courier New', monospace;
     text-align: right;
 }
 
@@ -331,21 +351,13 @@ button:hover {
         padding: 0;
     }
     
-    .header {
-        padding: 20px;
-    }
-    
     .header h1 {
         font-size: 1.5rem;
     }
     
     .content {
         padding: 0;
-    }
-    
-    .badge-row {
-        padding: 8px 8px 0;
-    }
+    } 
     
     th, td {
         padding: 8px 5px;

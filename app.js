@@ -202,21 +202,35 @@ function getPlayerSellStatus(leagueId, playerId) {
     return localStorage.getItem(key) === 'true';
 }
 
-function togglePlayerSellStatus(leagueId, playerId) {
+function togglePlayerSellStatus(leagueId, playerId, checkbox) {
     const key = getSellStatusKey(leagueId, playerId);
     const currentStatus = getPlayerSellStatus(leagueId, playerId);
-    localStorage.setItem(key, !currentStatus);
+    const newStatus = !currentStatus;
+    localStorage.setItem(key, newStatus);
+    
+    // If marking for sell, also unmark from s11
+    if (newStatus) {
+        const s11Key = getS11StatusKey(leagueId, playerId);
+        localStorage.setItem(s11Key, 'false');
+        
+        // Uncheck the s11 checkbox in the same row (first checkbox-cell)
+        const row = checkbox.closest('tr');
+        const s11Checkbox = row.querySelector('td.checkbox-cell:first-child input[type="checkbox"]');
+        if (s11Checkbox) {
+            s11Checkbox.checked = false;
+        }
+        
+        updateLineupDisplay();
+    }
+    
     updatePlayerCountDisplay();
     updateProjectedBalanceDisplay();
-    return !currentStatus;
+    return newStatus;
 }
 
 function getCredentials() {
     const username = localStorage.getItem('KB_EMAIL') || prompt('Kickbase E-Mail eingeben:') || '';
     const password = localStorage.getItem('KB_PASSWORD') || prompt('Kickbase Passwort:') || '';
-    
-    if (username) localStorage.setItem('KB_EMAIL', username);
-    if (password) localStorage.setItem('KB_PASSWORD', password);
     
     return { username, password };
 }
@@ -249,6 +263,8 @@ async function login(username, password) {
     currentUser = data.u;
     localStorage.setItem('KB_TOKEN', authToken);
     localStorage.setItem('KB_TOKEN_EXPIRE', data.tknex);
+    localStorage.setItem('KB_EMAIL', username);
+    localStorage.setItem('KB_PASSWORD', password);
     return data;
 }
 
@@ -366,7 +382,6 @@ async function showLeagueSelector(leaguesData) {
     if (savedLeagueId && leagues.find(l => l.id === savedLeagueId)) {
         select.value = savedLeagueId;
         await loadSelectedLeague();
-    } else {
     }
 }
 
@@ -424,7 +439,9 @@ function displayData(players, budget) {
     }, 0);
     const projectedBalance = budget + sellValue;
     
-    // Calculate lineup formation
+    // Calculate total market value diff (24h change)
+    const teamValueDiff = players.reduce((sum, p) => sum + (p.marketValueDiff || 0), 0);
+    const diffClass = teamValueDiff > 0 ? 'positive' : (teamValueDiff < 0 ? 'negative' : '');
     const lineup = calculateLineupFormation(players, currentLeagueId);
     const gkCount = getGoalkeeperCount(players, currentLeagueId);
     const isFormationValid = isValidFormation(lineup);
@@ -440,9 +457,12 @@ function displayData(players, budget) {
                     <span class="badge-value current" id="balance-value">${formatCurrency(budget)}</span>
                 </div>
             </div>
-            <div class="stat-badge">
+            <div class="stat-badge value-badge">
                 <span class="badge-emoji">📊</span>
-                <span class="badge-value">${formatCurrencyAbbreviated(totalValue)}</span>
+                <div class="value-stack">
+                    ${teamValueDiff !== 0 ? `<span class="badge-value diff ${diffClass}" id="team-value-diff">${teamValueDiff > 0 ? '+' : ''}${formatCurrencyAbbreviated(teamValueDiff)}</span>` : '<span class="badge-value diff" id="team-value-diff" style="display: none;"></span>'}
+                    <span class="badge-value current" id="team-value">${formatCurrencyAbbreviated(totalValue)}</span>
+                </div>
             </div>
             <div class="stat-badge ${!isFormationValid ? 'invalid' : ''}">
                 <span class="badge-emoji">📋</span>
@@ -458,10 +478,10 @@ function displayData(players, budget) {
         <table>
             <thead>
                 <tr>
-                    <th>S11</th>
-                    <th>sell?</th>
-                    <th>Player</th>
-                    <th class="currency">Value</th>
+                    <th>s11</th>
+                    <th>sell</th>
+                    <th>player</th>
+                    <th class="currency">value</th>
                 </tr>
             </thead>
             <tbody>
@@ -482,7 +502,7 @@ function displayData(players, budget) {
                     <input type="checkbox" ${s11Checked} onchange="togglePlayerS11Status('${currentLeagueId}', '${playerId}')">
                 </td>
                 <td class="checkbox-cell">
-                    <input type="checkbox" ${sellChecked} onchange="togglePlayerSellStatus('${currentLeagueId}', '${playerId}')">
+                    <input type="checkbox" ${sellChecked} onchange="togglePlayerSellStatus('${currentLeagueId}', '${playerId}', this)">
                 </td>
                 <td>${player.n || 'Unknown'}</td>
                 <td class="currency value-cell">
@@ -518,12 +538,7 @@ function clearStoredAuth() {
     localStorage.removeItem('KB_TOKEN_EXPIRE');
 }
 
-async function init() {
-    // Clean up old storage key if exists
-    if (localStorage.getItem('KB_LEAGUE_ID')) {
-        localStorage.removeItem('KB_LEAGUE_ID');
-    }
-    
+async function init() { 
     try {
         // First, try to use existing token and league
         const token = localStorage.getItem('KB_TOKEN');
