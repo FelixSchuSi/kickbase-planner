@@ -20,27 +20,6 @@ function formatCurrency(value) {
     }).format(value);
 }
 
-function formatCurrencyAbbreviated(value) {
-    if (value === null || value === undefined || isNaN(value)) return '-';
-    const absValue = Math.abs(value);
-    if (absValue >= 1000000) {
-        return new Intl.NumberFormat('de-DE', {
-            style: 'currency',
-            currency: 'EUR',
-            minimumFractionDigits: 1,
-            maximumFractionDigits: 1
-        }).format(value / 1000000) + 'M';
-    } else if (absValue >= 1000) {
-        return new Intl.NumberFormat('de-DE', {
-            style: 'currency',
-            currency: 'EUR',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(value / 1000) + 'K';
-    }
-    return formatCurrency(value);
-}
-
 function isValidFormation(formation) {
     const validFormations = ['3-4-3', '3-5-2', '3-6-1', '4-2-4', '4-3-3', '4-4-2', '4-5-1', '5-2-3', '5-3-2', '5-4-1'];
     return validFormations.includes(formation);
@@ -71,7 +50,7 @@ function calculateLineupFormation(players, leagueId) {
     
     players.forEach(player => {
         if (getPlayerS11Status(leagueId, player.i)) {
-            // Position values: 1=GK, 2=DEF, 3=MID, 4=FWD
+            // Position values: 1=GK, 2=DEF, 3=MF, 4=FWD
             const pos = player.pos || player.position;
             if (pos === 2) defenders++;
             else if (pos === 3) midfielders++;
@@ -460,8 +439,8 @@ function displayData(players, budget) {
             <div class="stat-badge value-badge">
                 <span class="badge-emoji">📊</span>
                 <div class="value-stack">
-                    ${teamValueDiff !== 0 ? `<span class="badge-value diff ${diffClass}" id="team-value-diff">${teamValueDiff > 0 ? '+' : ''}${formatCurrencyAbbreviated(teamValueDiff)}</span>` : '<span class="badge-value diff" id="team-value-diff" style="display: none;"></span>'}
-                    <span class="badge-value current" id="team-value">${formatCurrencyAbbreviated(totalValue)}</span>
+                    ${teamValueDiff !== 0 ? `<span class="badge-value diff ${diffClass}" id="team-value-diff">${teamValueDiff > 0 ? '+' : ''}${formatCurrency(teamValueDiff)}</span>` : '<span class="badge-value diff" id="team-value-diff" style="display: none;"></span>'}
+                    <span class="badge-value current" id="team-value">${formatCurrency(totalValue)}</span>
                 </div>
             </div>
             <div class="stat-badge ${!isFormationValid ? 'invalid' : ''}">
@@ -478,16 +457,24 @@ function displayData(players, budget) {
         <table>
             <thead>
                 <tr>
-                    <th>s11</th>
-                    <th>sell</th>
-                    <th>player</th>
-                    <th class="currency">value</th>
+                    <th class="cell-s11">s11</th>
+                    <th class="cell-sell">sell</th>
+                    <th class="cell-pos">pos</th>
+                    <th class="cell-player">player</th>
+                    <th class="cell-value currency">value</th>
                 </tr>
             </thead>
             <tbody>
     `;
     
-    players.forEach(player => {
+    // Sort players by position: GK (1), DEF (2), MF (3), FWD (4)
+    const sortedPlayers = players.slice().sort((a, b) => {
+        const posA = a.pos || a.position || 0;
+        const posB = b.pos || b.position || 0;
+        return posA - posB;
+    });
+    
+    sortedPlayers.forEach(player => {
         const diff = player.marketValueDiff || 0;
         const diffClass = diff > 0 ? 'positive' : (diff < 0 ? 'negative' : '');
         const playerId = player.i;
@@ -496,16 +483,22 @@ function displayData(players, budget) {
         const s11Status = getPlayerS11Status(currentLeagueId, playerId);
         const s11Checked = s11Status ? 'checked' : '';
         
+        // Map position values: 1=GK, 2=DEF, 3=MF, 4=FWD
+        const pos = player.pos || player.position;
+        const posMap = { 1: 'GK', 2: 'DEF', 3: 'MF', 4: 'FWD' };
+        const posLabel = posMap[pos] || '-';
+        
         html += `
             <tr>
-                <td class="checkbox-cell">
+                <td class="checkbox-cell cell-s11">
                     <input type="checkbox" ${s11Checked} onchange="togglePlayerS11Status('${currentLeagueId}', '${playerId}')">
                 </td>
-                <td class="checkbox-cell">
+                <td class="checkbox-cell cell-sell">
                     <input type="checkbox" ${sellChecked} onchange="togglePlayerSellStatus('${currentLeagueId}', '${playerId}', this)">
                 </td>
-                <td>${player.n || 'Unknown'}</td>
-                <td class="currency value-cell">
+                <td class="pos-cell cell-pos">${posLabel}</td>
+                <td class="cell-player">${player.n || 'Unknown'}</td>
+                <td class="currency value-cell cell-value">
                     <div class="diff-value ${diffClass}">${diff > 0 ? '+' : ''}${formatCurrency(diff)}</div>
                     <div class="market-value">${formatCurrency(player.mv)}</div>
                 </td>
@@ -539,51 +532,19 @@ function clearStoredAuth() {
 }
 
 async function init() { 
-    try {
-        // First, try to use existing token and league
-        const token = localStorage.getItem('KB_TOKEN');
-        const savedLeagueId = localStorage.getItem('KB_SELECTED_LEAGUE_ID');
-        
-        if (token && savedLeagueId && isTokenValid()) {
-            authToken = token;
-            currentLeagueId = savedLeagueId;
+    try {       
+        if (!isTokenValid()) {
+            const { username, password } = getCredentials();
             
-            try {
-                // Get leagues first to populate the dropdown
-                const leaguesData = await getLeagues();
-                if (leaguesData.length > 0) {
-                    await showLeagueSelector(leaguesData);
-                }
-                
-                // Then load the data
-                await loadAndDisplayData();
-                return;
-            } catch (error) {
-                if (error.message.includes('401')) {
-                    clearStoredAuth();
-                    // Fall through to login flow
-                } else {
-                    throw error;
-                }
+            if (!username || !password) {
+                throw new Error('Credentials required');
             }
+           
+            await login(username, password);
         }
         
-        // Get credentials and login
-        const { username, password } = getCredentials();
-        
-        if (!username || !password) {
-            throw new Error('Credentials required');
-        }
-        
-        await login(username, password);
-        
-        // Get leagues and show selector
+        authToken = localStorage.getItem('KB_TOKEN');
         const leaguesData = await getLeagues();
-        
-        if (leaguesData.length === 0) {
-            throw new Error('No leagues found');
-        }
-        
         await showLeagueSelector(leaguesData);
     } catch (error) {
         showError(error.message);
