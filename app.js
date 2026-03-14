@@ -2,10 +2,9 @@
 const API_BASE_URL = 'https://api.kickbase.com/v4';
 
 // State
-let authToken = null;
+let authToken = localStorage.getItem('KB_TOKEN');
 let leagues = [];
-let currentLeagueId = null;
-let currentUser = null;
+let currentLeagueId = localStorage.getItem('KB_SELECTED_LEAGUE_ID');
 let currentPlayers = [];
 let currentBudget = 0;
 
@@ -239,7 +238,6 @@ async function login(username, password) {
     
     const data = await response.json();
     authToken = data.tkn;
-    currentUser = data.u;
     localStorage.setItem('KB_TOKEN', authToken);
     localStorage.setItem('KB_TOKEN_EXPIRE', data.tknex);
     localStorage.setItem('KB_EMAIL', username);
@@ -542,8 +540,6 @@ async function init() {
            
             await login(username, password);
         }
-        
-        authToken = localStorage.getItem('KB_TOKEN');
         const leaguesData = await getLeagues();
         await showLeagueSelector(leaguesData);
     } catch (error) {
