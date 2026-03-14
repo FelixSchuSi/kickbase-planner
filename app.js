@@ -455,6 +455,7 @@ function displayData(players, budget) {
         <table>
             <thead>
                 <tr>
+                    <th class="cell-image"></th>
                     <th class="cell-s11">s11</th>
                     <th class="cell-sell">sell</th>
                     <th class="cell-pos">pos</th>
@@ -486,8 +487,13 @@ function displayData(players, budget) {
         const posMap = { 1: 'GK', 2: 'DEF', 3: 'MF', 4: 'FWD' };
         const posLabel = posMap[pos] || '-';
         
+        // Construct player image URL
+        const imageUrl = player.pim ? `https://kickbase.b-cdn.net/${player.pim}` : '';
+        const imageHtml = imageUrl ? `<img src="${imageUrl}" alt="${player.n || 'Player'}" class="player-image">` : '';
+        
         html += `
             <tr>
+                <td class="cell-image"><div class="img-wrapper">${imageHtml}</div></td>
                 <td class="checkbox-cell cell-s11">
                     <input type="checkbox" ${s11Checked} onchange="togglePlayerS11Status('${currentLeagueId}', '${playerId}')">
                 </td>

@@ -351,9 +351,25 @@ button:hover {
     transform: translateY(-1px);
 }
 
-.cell-s11, .cell-sell, .cell-pos {
+.cell-s11, .cell-sell, .cell-pos, .cell-image {
     width: 1px;
     text-align: center;
+}
+.img-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 60px;
+}
+
+.cell-image {
+    padding: 0;
+}
+
+.cell-image img {
+    height: 80px;
+    object-fit: cover;
+    vertical-align: middle;
 }
 
 th:first-child, td:first-child {
