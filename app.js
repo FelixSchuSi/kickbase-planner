@@ -354,12 +354,30 @@ function updateProjectedBalanceDisplay() {
     }
 }
 
-function togglePlayerS11Status(leagueId, playerId) {
+function togglePlayerS11Status(leagueId, playerId, checkbox) {
     const key = getS11StatusKey(leagueId, playerId);
     const currentStatus = getPlayerS11Status(leagueId, playerId);
-    localStorage.setItem(key, !currentStatus);
+    const newStatus = !currentStatus;
+    localStorage.setItem(key, newStatus);
+    
+    // If marking for starting eleven, also unmark from sell
+    if (newStatus) {
+        const sellKey = getSellStatusKey(leagueId, playerId);
+        localStorage.setItem(sellKey, 'false');
+        
+        // Uncheck the sell checkbox in the same row
+        const row = checkbox.closest('tr');
+        const sellCheckbox = row.querySelector('.cell-sell input[type="checkbox"]');
+        if (sellCheckbox) {
+            sellCheckbox.checked = false;
+        }
+        
+        updatePlayerCountDisplay();
+        updateProjectedBalanceDisplay();
+    }
+    
     updateLineupDisplay();
-    return !currentStatus;
+    return newStatus;
 }
 
 function getSellStatusKey(leagueId, playerId) {
@@ -376,7 +394,7 @@ function togglePlayerSellStatus(leagueId, playerId, checkbox) {
     const currentStatus = getPlayerSellStatus(leagueId, playerId);
     const newStatus = !currentStatus;
     localStorage.setItem(key, newStatus);
-    
+
     // If marking for sell, also unmark from s11
     if (newStatus) {
         const s11Key = getS11StatusKey(leagueId, playerId);
@@ -384,7 +402,7 @@ function togglePlayerSellStatus(leagueId, playerId, checkbox) {
         
         // Uncheck the s11 checkbox in the same row (first checkbox-cell)
         const row = checkbox.closest('tr');
-        const s11Checkbox = row.querySelector('td.checkbox-cell:first-child input[type="checkbox"]');
+        const s11Checkbox = row.querySelector('.cell-s11 input[type="checkbox"]');
         if (s11Checkbox) {
             s11Checkbox.checked = false;
         }
@@ -717,7 +735,7 @@ function displayData(players, budget) {
             <tr>
                 <td class="cell-image"><div class="img-wrapper">${imageHtml}</div></td>
                 <td class="checkbox-cell cell-s11">
-                    <input type="checkbox" ${s11Checked} onchange="togglePlayerS11Status('${currentLeagueId}', '${playerId}')">
+                    <input type="checkbox" ${s11Checked} onchange="togglePlayerS11Status('${currentLeagueId}', '${playerId}', this)">
                 </td>
                 <td class="checkbox-cell cell-sell">
                     <input type="checkbox" ${sellChecked} onchange="togglePlayerSellStatus('${currentLeagueId}', '${playerId}', this)">
