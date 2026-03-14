@@ -7,6 +7,7 @@ let leagues = [];
 let currentLeagueId = localStorage.getItem('KB_SELECTED_LEAGUE_ID');
 let currentPlayers = [];
 let currentBudget = 0;
+let teamPredictions = new Map(); // Stores teamId -> plpim mapping
 
 // Utility functions
 function formatCurrency(value) {
@@ -69,6 +70,56 @@ async function openTeamPredictionImage(teamId) {
         console.error('Error opening team prediction image:', error);
     }
 }
+
+async function fetchTeamPredictions() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/base/predictions/teams/1`, {
+            headers: {
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (!response.ok) {
+            console.error(`Failed to fetch team predictions: ${response.status}`);
+            return;
+        }
+        
+        const data = await response.json();
+        teamPredictions.clear();
+        
+        if (data.tms) {
+            data.tms.forEach(team => {
+                if (team.tid && team.plpim) {
+                    teamPredictions.set(team.tid, `https://kickbase.b-cdn.net/${team.plpim}`);
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error fetching team predictions:', error);
+    }
+}
+
+const teamLigainsiderMap = new Map([
+    [2, "https://www.ligainsider.de/fc-bayern-muenchen/1/"],        // Bayern
+    [7, "https://www.ligainsider.de/bayer-04-leverkusen/4/"],       // Leverkusen
+    [4, "https://www.ligainsider.de/eintracht-frankfurt/3/"],       // Frankfurt
+    [3, "https://www.ligainsider.de/borussia-dortmund/14/"],        // Dortmund
+    [5, "https://www.ligainsider.de/sc-freiburg/18/"],              // Freiburg
+    [18, "https://www.ligainsider.de/1-fsv-mainz-05/17/"],          // Mainz
+    [43, "https://www.ligainsider.de/rb-leipzig/1311/"],            // Leipzig
+    [10, "https://www.ligainsider.de/sv-werder-bremen/2/"],         // Bremen
+    [9, "https://www.ligainsider.de/vfb-stuttgart/12/"],            // Stuttgart
+    [15, "https://www.ligainsider.de/borussia-moenchengladbach/5/"],// Gladbach
+    [11, "https://www.ligainsider.de/vfl-wolfsburg/16/"],           // Wolfsburg
+    [13, "https://www.ligainsider.de/fc-augsburg/21/"],             // Augsburg
+    [40, "https://www.ligainsider.de/1-fc-union-berlin/1246/"],     // Union Berlin
+    [39, "https://www.ligainsider.de/fc-st-pauli/20/"],             // St. Pauli
+    [14, "https://www.ligainsider.de/tsg-hoffenheim/10/"],          // Hoffenheim
+    [50, "https://www.ligainsider.de/1-fc-heidenheim/1259/"],       // Heidenheim
+    [28, "https://www.ligainsider.de/1-fc-koeln/15/"],              // Köln
+    [6, "https://www.ligainsider.de/hamburger-sv/9/"]              // Hamburg
+]);
 
 function getGoalkeeperCount(players, leagueId) {
     let goalkeepers = 0;
@@ -424,10 +475,14 @@ async function loadSelectedLeague() {
 async function loadAndDisplayData() {
     
     try {
+        // Fetch all data in parallel including team predictions
         const [players, budget] = await Promise.all([
             getSquad(currentLeagueId),
             getBudget(currentLeagueId)
         ]);
+        
+        // Fetch team predictions (don't block display on this)
+        fetchTeamPredictions();
         
         const playersWithDiff = await Promise.all(
             players.map(async player => {
@@ -546,8 +601,8 @@ function displayData(players, budget) {
                 <td class="checkbox-cell cell-sell">
                     <input type="checkbox" ${sellChecked} onchange="togglePlayerSellStatus('${currentLeagueId}', '${playerId}', this)">
                 </td>
-                <td class="pos-cell cell-pos" style="background-color: ${getProbabilityColor(player.prob)}; color: white; font-weight: 600; cursor: pointer;" onclick="openTeamPredictionImage('${player.tid || ''}')">${posLabel}</td>
-                <td class="cell-player">${player.n || 'Unknown'}</td>
+                <td class="pos-cell cell-pos" style="background-color: ${getProbabilityColor(player.prob)}; color: white; font-weight: 600;"><a href="${teamPredictions.get(player.tid) || '#'}" target="_blank" style="text-decoration: none; color: inherit;">${posLabel}</a></td>
+                <td class="cell-player"><a href="${teamLigainsiderMap.get(parseInt(player.tid)) || '#'}" target="_blank" style="text-decoration: none; color: inherit; cursor: pointer;">${player.n || 'Unknown'}</a></td>
                 <td class="currency value-cell cell-value">
                     <div class="diff-value ${diffClass}">${diff > 0 ? '+' : ''}${formatCurrency(diff)}</div>
                     <div class="market-value">${formatCurrency(player.mv)}</div>
