@@ -24,6 +24,18 @@ function isValidFormation(formation) {
     return validFormations.includes(formation);
 }
 
+function getProbabilityColor(prob) {
+    // Map probability values to colors for starting eleven likelihood
+    const colorMap = {
+        1: 'rgb(0, 122, 255)',      // certain
+        2: 'rgb(0, 156, 81)',       // expected
+        3: 'rgb(237, 135, 40)',     // uncertain
+        4: 'rgb(255, 70, 0)',       // unlikely
+        5: 'rgb(39, 39, 41)'        // ruled out
+    };
+    return colorMap[prob] || 'rgb(200, 200, 200)'; // default gray for unknown
+}
+
 function getGoalkeeperCount(players, leagueId) {
     let goalkeepers = 0;
     players.forEach(player => {
@@ -500,7 +512,7 @@ function displayData(players, budget) {
                 <td class="checkbox-cell cell-sell">
                     <input type="checkbox" ${sellChecked} onchange="togglePlayerSellStatus('${currentLeagueId}', '${playerId}', this)">
                 </td>
-                <td class="pos-cell cell-pos">${posLabel}</td>
+                <td class="pos-cell cell-pos" style="background-color: ${getProbabilityColor(player.prob)}; color: white; font-weight: 600;">${posLabel}</td>
                 <td class="cell-player">${player.n || 'Unknown'}</td>
                 <td class="currency value-cell cell-value">
                     <div class="diff-value ${diffClass}">${diff > 0 ? '+' : ''}${formatCurrency(diff)}</div>
