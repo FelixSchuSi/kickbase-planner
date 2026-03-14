@@ -128,6 +128,13 @@ h1 {
     line-height: 1.2;
 }
 
+.player-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+}
+
 .balance-stack .badge-value.projected {
     font-size: 0.65rem;
     color: #4caf50;
@@ -383,4 +390,43 @@ th:first-child, td:first-child {
 
 th:last-child, td:last-child {
     padding-right: 8px;
+}
+
+/* Probability pills */
+.prob-pill {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    margin-left: 4px;
+    border-radius: 10px;
+    color: white;
+    font-weight: 600;
+    vertical-align: middle;
+    line-height: 1.2;
+    min-width: 24px;
+    text-align: center;
+}
+
+/* Loading skeleton animation for LI pill */
+.prob-pill.loading {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(90deg, 
+        #e0e0e0 0%, 
+        #f0f0f0 50%, 
+        #e0e0e0 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1s ease-in-out infinite;
+    color: rgba(100, 100, 100, 0.5);
+    pointer-events: none;
+}
+
+@keyframes skeleton-shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
 }

@@ -1,3 +1,5 @@
+const CACHE_TTL_SECONDS = 300; // 5 minutes
+
 const teamLigainsiderMap = new Map([
   [2, "https://www.ligainsider.de/fc-bayern-muenchen/1/"],
   [7, "https://www.ligainsider.de/bayer-04-leverkusen/4/"],
@@ -74,47 +76,104 @@ async function getPlayers(response) {
   }
 }
 
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    const path = url.pathname;
-    
-    // Extract team ID from path (e.g., /2 or /2/)
-    const match = path.match(/^\/(\d+)\/?$/);
-    if (!match) {
-      return new Response("Invalid path. Use /{teamId}", { status: 400 });
-    }
-    
-    const teamId = parseInt(match[1], 10);
-    const ligainsiderUrl = teamLigainsiderMap.get(teamId);
-    
-    if (!ligainsiderUrl) {
-      return new Response(`Team ID ${teamId} not found`, { status: 404 });
-    }
-    
+async function fetchTeamWithRetry(teamId, url, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(ligainsiderUrl, {
+      const response = await fetch(url, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         }
       });
       
-      if (!response.ok) {
-        return new Response(`Failed to fetch from Ligainsider: ${response.status}`, { 
-          status: response.status 
-        });
+      if (response.ok) {
+        return await getPlayers(response);
       }
+
+      console.log("error: " + url)
       
-      const result = await getPlayers(response);
-      
+      // If not OK and not last attempt, wait and retry
+      if (attempt < maxRetries) {
+        const delay = attempt * 1000; // 1s, 2s, 3s
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw new Error(`HTTP ${response.status} after ${maxRetries} attempts`);
+      }
+    } catch (error) {
+      // Network error or exception
+      if (attempt < maxRetries) {
+        const delay = attempt * 1000; // 1s, 2s, 3s
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw new Error(`Failed after ${maxRetries} attempts: ${error.message}`);
+      }
+    }
+  }
+  
+  throw new Error(`Failed after ${maxRetries} attempts`);
+}
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    
+    // Only accept root path
+    if (path !== '/') {
+      return new Response("Use GET / to fetch all teams", { status: 400 });
+    }
+    
+    // Check cache first
+    const cache = caches.default;
+    const cacheKey = new Request(url.toString(), request);
+    const cachedResponse = await cache.match(cacheKey);
+    
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    
+    const result = { teams: {}, errors: {} };
+    
+    // Fetch all teams in parallel
+    const fetchPromises = Array.from(teamLigainsiderMap.entries()).map(
+      async ([teamId, ligainsiderUrl]) => {
+        try {
+          const teamData = await fetchTeamWithRetry(teamId, ligainsiderUrl);
+          result.teams[teamId] = teamData;
+        } catch (error) {
+          result.errors[teamId] = error.message;
+        }
+      }
+    );
+    
+    await Promise.all(fetchPromises);
+    
+    // If ALL teams failed, return 500 (don't cache failures)
+    const totalTeams = teamLigainsiderMap.size;
+    const failedTeams = Object.keys(result.errors).length;
+    
+    if (failedTeams === totalTeams) {
       return new Response(JSON.stringify(result), {
+        status: 500,
         headers: {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*"
         }
       });
-    } catch (error) {
-      return new Response(`Error fetching data: ${error.message}`, { status: 500 });
     }
+    
+    // Create response with cache headers
+    const response = new Response(JSON.stringify(result), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": `max-age=${CACHE_TTL_SECONDS}`
+      }
+    });
+    
+    // Store in cache
+    await cache.put(cacheKey, response.clone());
+    
+    return response;
   }
 };

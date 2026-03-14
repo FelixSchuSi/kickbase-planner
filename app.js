@@ -1,5 +1,8 @@
 // Configuration
 const API_BASE_URL = 'https://api.kickbase.com/v4';
+const LIGAINSIDER_WORKER_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:8787/'
+    : 'https://li-worker.better-kickbase.workers.dev/';
 
 // State
 let authToken = localStorage.getItem('KB_TOKEN');
@@ -8,6 +11,9 @@ let currentLeagueId = localStorage.getItem('KB_SELECTED_LEAGUE_ID');
 let currentPlayers = [];
 let currentBudget = 0;
 let teamPredictions = new Map(); // Stores teamId -> plpim mapping
+let ligainsiderData = new Map(); // Stores teamId -> probability data
+
+
 
 // Utility functions
 function formatCurrency(value) {
@@ -35,6 +41,94 @@ function getProbabilityColor(prob) {
         5: 'rgb(39, 39, 41)'        // ruled out
     };
     return colorMap[prob] || 'rgb(200, 200, 200)'; // default gray for unknown
+}
+
+async function fetchAllLigainsiderData() {
+    if (ligainsiderData.size > 0) return ligainsiderData;
+    
+    try {
+        // Fetch all teams data in a single request
+        const response = await fetch(LIGAINSIDER_WORKER_URL);
+        
+        if (!response.ok) {
+            console.warn(`Failed to fetch Ligainsider data: ${response.status}`);
+            return null;
+        }
+        
+        const data = await response.json();
+        
+        // Store each team's data in the Map
+        if (data.teams) {
+            Object.entries(data.teams).forEach(([teamId, teamData]) => {
+                ligainsiderData.set(parseInt(teamId), teamData);
+            });
+        }
+        
+        // Log any errors for debugging
+        if (data.errors && Object.keys(data.errors).length > 0) {
+            console.warn('Some teams failed to load:', data.errors);
+        }
+        
+        return ligainsiderData;
+    } catch (error) {
+        console.warn('Error fetching Ligainsider data:', error);
+        return null;
+    }
+}
+
+function getPlayerLigainsiderCategory(playerName, teamId) {
+    // Get the Ligainsider probability category for a player
+    const teamData = ligainsiderData.get(parseInt(teamId));
+    if (!teamData) return null;
+    const normalizedName = playerName.toLowerCase().trim();
+
+    const filter = (name ) => {
+        const nom = name.toLowerCase().trim();
+        return nom.includes(normalizedName) || normalizedName.includes(nom);
+    }
+    
+    // Check each category
+    if (teamData.certainPlayers?.some(filter)) {
+        return 'certainPlayers';
+    }
+    if (teamData.playersWithAlternative?.some(filter)) {
+        return 'playersWithAlternative';
+    }
+    if (teamData.playersFirstAlternative?.some(filter)) {
+        return 'playersFirstAlternative';
+    }
+    if (teamData.playersSecondAlternative?.some(filter)) {
+        return 'playersSecondAlternative';
+    }
+    if (teamData.playersThirdAlternative?.some(filter)) {
+        return 'playersThirdAlternative';
+    }
+    
+    return "";
+}
+
+function getLiCategoryColor(category) {
+    const colorMap = {
+        "certainPlayers": 'rgb(0, 122, 255)',
+        "playersWithAlternative": 'rgb(237, 135, 40)',
+        "playersFirstAlternative": 'rgb(237, 135, 40)',
+        "playersSecondAlternative": 'rgb(237, 135, 40)',
+        "playersThirdAlternative": 'rgb(237, 135, 40)',
+        "": 'rgb(39, 39, 41)',
+    };
+    return colorMap[category] || 'rgb(39, 39, 41)';
+}
+
+function getLiCategoryText(category) {
+    const textMap = {
+        "certainPlayers": 'LI',
+        "playersWithAlternative": 'LI >',
+        "playersFirstAlternative": '< LI',
+        "playersSecondAlternative": '<< LI',
+        "playersThirdAlternative": '<<< LI',
+        "": 'LI'
+    };
+    return textMap[category] || 'LI';
 }
 
 async function openTeamPredictionImage(teamId) {
@@ -473,9 +567,8 @@ async function loadSelectedLeague() {
 }
 
 async function loadAndDisplayData() {
-    
     try {
-        // Fetch all data in parallel including team predictions
+        // Fetch all data in parallel including team predictions (fast - no Ligainsider blocking)
         const [players, budget] = await Promise.all([
             getSquad(currentLeagueId),
             getBudget(currentLeagueId)
@@ -496,10 +589,36 @@ async function loadAndDisplayData() {
         
         currentPlayers = playersWithDiff;
         currentBudget = budget;
+        
+        // Render immediately with Kickbase data only (fast initial load)
         displayData(playersWithDiff, budget);
+        
+        // Then fetch Ligainsider data asynchronously and update UI
+        await fetchAllLigainsiderData();
+        await new Promise(resolve => setTimeout(resolve, 10));
+        const pillerContainers = [...document.querySelectorAll('.player-pills')];
+        for (player of playersWithDiff) {
+            const pillContainer = pillerContainers.find(pc => pc.classList.contains(`playerid-${player.i}`));
+            if (!pillContainer) continue;
+            // Update the pill container with the correct LI pill
+            pillContainer.innerHTML = getPlayerPills(player);
+        }        
     } catch (error) {
         showError(error.message);
     }
+}
+
+function getPlayerPills(player) {
+    // Create KB probability pill - wrapped in team predictions link
+    const kbPillHtml = `<a href="${teamPredictions.get(player.tid) || '#'}" target="_blank" style="text-decoration: none;"><span class="prob-pill" style="background-color: ${getProbabilityColor(player.prob)};">KB</span></a>`
+    
+    // Create LI probability pill (only if category exists) - wrapped in Ligainsider link
+    const ligainsiderCategory = getPlayerLigainsiderCategory(player.n, player.tid);
+    let liLoading = false;
+    if (ligainsiderCategory === null) liLoading = true;
+    let liPillHtml = `<a href="${teamLigainsiderMap.get(parseInt(player.tid)) || '#'}" target="_blank" style="text-decoration: none;"><span class="prob-pill li-pill ${liLoading ? "loading": "" }" style="background-color: ${getLiCategoryColor(ligainsiderCategory)};">${getLiCategoryText(ligainsiderCategory)}</span></a>` 
+    
+    return `${kbPillHtml}${liPillHtml}`;
 }
 
 function displayData(players, budget) {
@@ -592,6 +711,8 @@ function displayData(players, budget) {
         const imageUrl = player.pim ? `https://kickbase.b-cdn.net/${player.pim}` : '';
         const imageHtml = imageUrl ? `<img src="${imageUrl}" alt="${player.n || 'Player'}" class="player-image">` : '';
         
+        
+        
         html += `
             <tr>
                 <td class="cell-image"><div class="img-wrapper">${imageHtml}</div></td>
@@ -601,8 +722,13 @@ function displayData(players, budget) {
                 <td class="checkbox-cell cell-sell">
                     <input type="checkbox" ${sellChecked} onchange="togglePlayerSellStatus('${currentLeagueId}', '${playerId}', this)">
                 </td>
-                <td class="pos-cell cell-pos" style="background-color: ${getProbabilityColor(player.prob)}; color: white; font-weight: 600;"><a href="${teamPredictions.get(player.tid) || '#'}" target="_blank" style="text-decoration: none; color: inherit;">${posLabel}</a></td>
-                <td class="cell-player"><a href="${teamLigainsiderMap.get(parseInt(player.tid)) || '#'}" target="_blank" style="text-decoration: none; color: inherit; cursor: pointer;">${player.n || 'Unknown'}</a></td>
+                <td class="pos-cell cell-pos" style="color: #333; font-weight: 600;">${posLabel}</td>
+                <td class="cell-player">
+                    <div class="player-stack">
+                        <span class="player-pills playerid-${player.i}">${getPlayerPills(player)}</span>
+                        <span>${player.n || 'Unknown'}</span>
+                    </div>
+                </td>
                 <td class="currency value-cell cell-value">
                     <div class="diff-value ${diffClass}">${diff > 0 ? '+' : ''}${formatCurrency(diff)}</div>
                     <div class="market-value">${formatCurrency(player.mv)}</div>
