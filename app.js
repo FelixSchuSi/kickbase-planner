@@ -507,32 +507,6 @@ async function getBudget(leagueId) {
     return data.b || 0;
 }
 
-async function getPlayerMarketValueHistory(leagueId, playerId) {
-    const response = await fetch(`${API_BASE_URL}/leagues/${leagueId}/players/${playerId}/marketvalue/92`, {
-        headers: {
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-        }
-    });
-    
-    if (!response.ok) {
-        return null;
-    }
-    
-    return await response.json();
-}
-
-async function calculateMarketValueDiff(leagueId, playerId) {
-    const history = await getPlayerMarketValueHistory(leagueId, playerId);
-    
-    if (!history || !history.it || history.it.length < 2) {
-        return 0;
-    }
-    
-    const items = history.it;
-    return items[items.length - 1].mv - items[items.length - 2].mv;
-}
-
 async function showLeagueSelector(leaguesData) {
     leagues = leaguesData;
     const selector = document.getElementById('league-selector');
@@ -595,27 +569,17 @@ async function loadAndDisplayData() {
         // Fetch team predictions (don't block display on this)
         fetchTeamPredictions();
         
-        const playersWithDiff = await Promise.all(
-            players.map(async player => {
-                const diff = await calculateMarketValueDiff(currentLeagueId, player.i);
-                return {
-                    ...player,
-                    marketValueDiff: diff
-                };
-            })
-        );
-        
-        currentPlayers = playersWithDiff;
+        currentPlayers = players;
         currentBudget = budget;
         
         // Render immediately with Kickbase data only (fast initial load)
-        displayData(playersWithDiff, budget);
+        displayData(players, budget);
         
         // Then fetch Ligainsider data asynchronously and update UI
         await fetchAllLigainsiderData();
         await new Promise(resolve => setTimeout(resolve, 10));
         const pillerContainers = [...document.querySelectorAll('.player-pills')];
-        for (player of playersWithDiff) {
+        for (player of players) {
             const pillContainer = pillerContainers.find(pc => pc.classList.contains(`playerid-${player.i}`));
             if (!pillContainer) continue;
             // Update the pill container with the correct LI pill
@@ -655,7 +619,7 @@ function displayData(players, budget) {
     const projectedBalance = budget + sellValue;
     
     // Calculate total market value diff (24h change)
-    const teamValueDiff = players.reduce((sum, p) => sum + (p.marketValueDiff || 0), 0);
+    const teamValueDiff = players.reduce((sum, p) => sum + (p.tfhmvt || 0), 0);
     const diffClass = teamValueDiff > 0 ? 'positive' : (teamValueDiff < 0 ? 'negative' : '');
     const lineup = calculateLineupFormation(players, currentLeagueId);
     const gkCount = getGoalkeeperCount(players, currentLeagueId);
@@ -712,7 +676,7 @@ function displayData(players, budget) {
     });
     
     sortedPlayers.forEach(player => {
-        const diff = player.marketValueDiff || 0;
+        const diff = player.tfhmvt || 0;
         const diffClass = diff > 0 ? 'positive' : (diff < 0 ? 'negative' : '');
         const playerId = player.i;
         const sellStatus = getPlayerSellStatus(currentLeagueId, playerId);
