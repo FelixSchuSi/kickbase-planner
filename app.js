@@ -36,6 +36,40 @@ function getProbabilityColor(prob) {
     return colorMap[prob] || 'rgb(200, 200, 200)'; // default gray for unknown
 }
 
+async function openTeamPredictionImage(teamId) {
+    if (!teamId) {
+        console.error('No teamId provided for prediction image');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/base/predictions/teams/1`, {
+            headers: {
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (!response.ok) {
+            console.error(`Failed to fetch team predictions: ${response.status}`);
+            return;
+        }
+        
+        const data = await response.json();
+        const team = data.tms?.find(t => t.tid === teamId);
+        
+        if (!team || !team.plpim) {
+            console.error(`Team prediction not found for teamId: ${teamId}`);
+            return;
+        }
+        
+        const imageUrl = `https://kickbase.b-cdn.net/${team.plpim}`;
+        window.open(imageUrl, '_blank');
+    } catch (error) {
+        console.error('Error opening team prediction image:', error);
+    }
+}
+
 function getGoalkeeperCount(players, leagueId) {
     let goalkeepers = 0;
     players.forEach(player => {
@@ -512,7 +546,7 @@ function displayData(players, budget) {
                 <td class="checkbox-cell cell-sell">
                     <input type="checkbox" ${sellChecked} onchange="togglePlayerSellStatus('${currentLeagueId}', '${playerId}', this)">
                 </td>
-                <td class="pos-cell cell-pos" style="background-color: ${getProbabilityColor(player.prob)}; color: white; font-weight: 600;">${posLabel}</td>
+                <td class="pos-cell cell-pos" style="background-color: ${getProbabilityColor(player.prob)}; color: white; font-weight: 600; cursor: pointer;" onclick="openTeamPredictionImage('${player.tid || ''}')">${posLabel}</td>
                 <td class="cell-player">${player.n || 'Unknown'}</td>
                 <td class="currency value-cell cell-value">
                     <div class="diff-value ${diffClass}">${diff > 0 ? '+' : ''}${formatCurrency(diff)}</div>

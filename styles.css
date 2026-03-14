@@ -351,6 +351,11 @@ button:hover {
     transform: translateY(-1px);
 }
 
+.cell-pos{
+    max-width: 32px;
+    padding: 0;
+}
+
 .cell-s11, .cell-sell, .cell-pos, .cell-image {
     width: 1px;
     text-align: center;
