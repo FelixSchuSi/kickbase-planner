@@ -393,11 +393,16 @@ th:last-child, td:last-child {
 }
 
 /* Probability pills */
+.player-pills {
+    display: inline-flex;
+    flex-direction: row;
+    gap: 4px;
+}
+
 .prob-pill {
     display: inline-block;
     font-size: 0.65rem;
     padding: 2px 6px;
-    margin-left: 4px;
     border-radius: 10px;
     color: white;
     font-weight: 600;
