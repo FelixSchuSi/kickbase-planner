@@ -4,29 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>kickbase-planner 📈</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="src/styles.css">
+    <link rel="icon" href="src/favicon.svg" />
 </head>
 <body>
     <div class="container">
         <div class="header-fullwidth-wrapper">
             <div class="header">
                 <h1>kickbase-planner 📈</h1>
-                <div id="league-selector" class="league-selector" style="display: none;">
+                <div id="league-selector" class="league-selector">
                     <select id="league-select">
                         <option value="">-- Select a league --</option>
                     </select>
                 </div>
             </div>
         </div>
-        
         <div class="content">
             <div id="error" class="error" style="display: none;"></div>
-            
             <div id="data-container"></div>
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script type="module" src="src/app.js"></script>
 </body>
 </html>
