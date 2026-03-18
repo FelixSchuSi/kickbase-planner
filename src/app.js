@@ -213,18 +213,15 @@ function displayData(players, budget) {
             ${needsGoalkeeper ? '<div class="stat-badge error-badge"><span class="badge-emoji">⚠️</span><span class="badge-value">No GK</span></div>' : ''}
             ${tooManyGoalkeepers ? '<div class="stat-badge error-badge"><span class="badge-emoji">⚠️</span><span class="badge-value">' + gkCount + ' GKs</span></div>' : ''}
         </div>
-        <table>
-            <thead>
-                <tr>
-                    <th class="cell-image"></th>
-                    <th class="cell-s11">s11</th>
-                    <th class="cell-sell">sell</th>
-                    <th class="cell-pos">pos</th>
-                    <th class="cell-player">player</th>
-                    <th class="cell-value currency">value</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div class="data-grid">
+            <div class="grid-header">
+                <div class="grid-cell cell-image"></div>
+                <div class="grid-cell cell-s11">s11</div>
+                <div class="grid-cell cell-sell">sell</div>
+                <div class="grid-cell cell-pos">pos</div>
+                <div class="grid-cell cell-player">player</div>
+                <div class="grid-cell cell-value currency">value</div>
+            </div>
     `;
     
     // Sort players by position: GK (1), DEF (2), MF (3), FWD (4)
@@ -255,30 +252,30 @@ function displayData(players, budget) {
         
         
         html += `
-            <tr>
-                <td class="cell-image"><div class="img-wrapper">${imageHtml}</div></td>
-                <td class="checkbox-cell cell-s11">
+            <div class="grid-row">
+                <div class="grid-cell cell-image"><div class="img-wrapper">${imageHtml}</div></div>
+                <div class="grid-cell checkbox-cell cell-s11">
                     <input type="checkbox" ${s11Checked} onchange="togglePlayerS11Status('${currentLeagueId}', '${playerId}', this)">
-                </td>
-                <td class="checkbox-cell cell-sell">
+                </div>
+                <div class="grid-cell checkbox-cell cell-sell">
                     <input type="checkbox" ${sellChecked} onchange="togglePlayerSellStatus('${currentLeagueId}', '${playerId}', this)">
-                </td>
-                <td class="pos-cell cell-pos" style="color: #333; font-weight: 600;">${posLabel}</td>
-                <td class="cell-player">
+                </div>
+                <div class="grid-cell pos-cell cell-pos" style="color: #333; font-weight: 600;">${posLabel}</div>
+                <div class="grid-cell cell-player">
                     <div class="player-stack">
                         <span class="player-pills playerid-${player.i}">${getPlayerPills(player)}</span>
                         <span>${player.n || 'Unknown'}</span>
                     </div>
-                </td>
-                <td class="currency value-cell cell-value">
+                </div>
+                <div class="grid-cell currency value-cell cell-value">
                     <div class="diff-value ${diffClass}">${diff > 0 ? '+' : ''}${formatCurrency(diff)}</div>
                     <div class="market-value">${formatCurrency(player.mv)}</div>
-                </td>
-            </tr>
+                </div>
+            </div>
         `;
     });
     
-    html += '</tbody></table>';
+    html += '</div>';
     container.innerHTML = html;
 }
 

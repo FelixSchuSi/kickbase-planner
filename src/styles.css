@@ -260,7 +260,6 @@ h1 {
 
 .checkbox-cell {
     text-align: center;
-    width: 60px;
 }
 
 .checkbox-cell input[type="checkbox"] {
@@ -272,10 +271,6 @@ h1 {
 
 .checkbox-cell.s11-cell input[type="checkbox"] {
     accent-color: #11998e;
-}
-
-.value-cell {
-    text-align: right;
 }
 
 .value-cell .diff-value,
@@ -296,32 +291,49 @@ h1 {
     border-left: 4px solid #1565c0;
 }
 
-table {
-    width: 100%;
-    border-collapse: collapse;
+.data-grid {
+    display: grid;
+    grid-template-columns: 60px min-content min-content fit-content(0) 1fr 120px;
 }
 
-th, td {
-    font-size: 0.85rem;
-    padding: 8px 5px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
+.grid-header,
+.grid-row {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
 }
 
-th {
+.grid-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
     background: #f5f5f5;
     font-weight: 600;
     color: #333;
-    position: sticky;
-    top: 0;
 }
 
-tr:hover {
+.grid-cell {
+    font-size: 0.85rem;
+    padding: 8px 5px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+}
+
+.grid-row:hover {
     background: #f9f9f9;
 }
 
 .currency {
-    text-align: right;
+    justify-content: flex-end;
+}
+
+.value-cell {
+    flex-direction: column;
+    align-items: flex-end;
+    flex-direction: column;
+    display: flex;
+    justify-content: center;
 }
 
 .positive {
@@ -337,7 +349,7 @@ tr:hover {
     font-weight: bold;
 }
 
-.separator-row td {
+.separator-row .grid-cell {
     border-top: 2px solid #999;
     border-bottom: 2px solid #999;
 }
@@ -363,10 +375,13 @@ button:hover {
     padding: 0;
 }
 
-.cell-s11, .cell-sell, .cell-pos, .cell-image {
-    width: 1px;
-    text-align: center;
+.cell-s11,
+.cell-sell,
+.cell-pos,
+.cell-image {
+    justify-content: center;
 }
+
 .img-wrapper {
     display: flex;
     justify-content: center;
@@ -384,11 +399,11 @@ button:hover {
     vertical-align: middle;
 }
 
-th:first-child, td:first-child {
+.grid-cell:first-child {
     padding-left: 8px;
 }
 
-th:last-child, td:last-child {
+.grid-cell:last-child {
     padding-right: 8px;
 }
 

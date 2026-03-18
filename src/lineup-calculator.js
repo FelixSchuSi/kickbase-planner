@@ -175,7 +175,7 @@ export function togglePlayerS11Status(leagueId, playerId, checkbox) {
     const sellKey = getSellStatusKey(leagueId, playerId);
     localStorage.setItem(sellKey, 'false');
     
-    const row = checkbox.closest('tr');
+    const row = checkbox.closest('.grid-row');
     const sellCheckbox = row.querySelector('.cell-sell input[type="checkbox"]');
     if (sellCheckbox) {
       sellCheckbox.checked = false;
@@ -199,7 +199,7 @@ export function togglePlayerSellStatus(leagueId, playerId, checkbox) {
     const s11Key = getS11StatusKey(leagueId, playerId);
     localStorage.setItem(s11Key, 'false');
     
-    const row = checkbox.closest('tr');
+    const row = checkbox.closest('.grid-row');
     const s11Checkbox = row.querySelector('.cell-s11 input[type="checkbox"]');
     if (s11Checkbox) {
       s11Checkbox.checked = false;
