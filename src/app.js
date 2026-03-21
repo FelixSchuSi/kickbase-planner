@@ -1,3 +1,6 @@
+import {html, render} from '../lit-html/lit-html.js';
+import {live} from '../lit-html/directives/live.js';
+
 import {  
     getAuthToken,
     login 
@@ -5,26 +8,40 @@ import {
 import {
     fetchLigainsiderPredictions,
     fetchKickbasePredictions,
-    getPlayerPills
+    getPlayerPills,
 } from './s11-predictions.js';
 import {
     registerLineupState,
     getPlayerSellStatus,
     getPlayerS11Status,
-    calculateLineupFormation,
+    isValidFormation,
     getGoalkeeperCount,
-    isValidFormation
+    calculateLineupFormation,
+    togglePlayerS11Status,
+    togglePlayerSellStatus
 } from './lineup-calculator.js';
 import {
     registerBalanceState,
     formatCurrency,
     calculateBalanceData,
     calculateTeamValueDiff,
-    getRemainingPlayerCount,
     generateBalanceBadgeHTML,
     generateTeamValueBadgeHTML,
     generatePlayerCountBadgeHTML
 } from './balance-calculator.js';
+import {
+    initTransferPlanner,
+    openTransferPopover
+} from './transfer-player-ui.js';
+import {
+    addPlannedTransfer,
+    loadPlannedTransferPlayers,
+    getPlannedTransfers,
+    registerPlannedTransferState,
+    removePlannedTransfer,
+    updatePlannedTransferPrice,
+    calculatePlannedTransfersCost,
+} from './transfer-planner.js';
 
 // Configuration
 export const API_BASE_URL = 'https://api.kickbase.com/v4';
@@ -44,6 +61,13 @@ registerLineupState({
 
 // Register state with balance calculator
 registerBalanceState({
+  get currentPlayers() { return currentPlayers; },
+  get currentLeagueId() { return currentLeagueId; },
+  get currentBudget() { return currentBudget; }
+});
+
+// Register state with planned transfers module
+registerPlannedTransferState({
   get currentPlayers() { return currentPlayers; },
   get currentLeagueId() { return currentLeagueId; },
   get currentBudget() { return currentBudget; }
@@ -168,22 +192,16 @@ async function loadAndDisplayData() {
         // Fetch team predictions (don't block display on this)
         fetchKickbasePredictions(getAuthToken(), API_BASE_URL);
         
-        currentPlayers = players;
+        // Load planned transfers and merge with current players
+        const plannedTransferPlayers = await loadPlannedTransferPlayers(currentLeagueId);
+        currentPlayers = [...plannedTransferPlayers, ...players];
         currentBudget = budget;
         
         // Render immediately with Kickbase data only (fast initial load)
-        displayData(players, budget);
-        
+        displayData(currentPlayers, budget);        
         // Then fetch Ligainsider data asynchronously and update UI
         await fetchLigainsiderPredictions();
-        await new Promise(resolve => setTimeout(resolve, 10));
-        const pillerContainers = [...document.querySelectorAll('.player-pills')];
-        for (const player of players) {
-            const pillContainer = pillerContainers.find(pc => pc.classList.contains(`playerid-${player.i}`));
-            if (!pillContainer) continue;
-            // Update the pill container with the correct LI pill
-            pillContainer.innerHTML = getPlayerPills(player);
-        }        
+        displayData(currentPlayers, budget);
     } catch (error) {
         showError(error.message);
     }
@@ -192,26 +210,44 @@ async function loadAndDisplayData() {
 function displayData(players, budget) {
     const container = document.getElementById('data-container');
     
+    const plannedCost = calculatePlannedTransfersCost(currentLeagueId);
+    
     const { totalValue, sellValue, projectedBalance } = calculateBalanceData(players, budget);
     const teamValueDiff = calculateTeamValueDiff(players);
+    
+    // Calculate formation using regular functions (planned transfers are already in players array)
     const lineup = calculateLineupFormation(players, currentLeagueId);
     const gkCount = getGoalkeeperCount(players, currentLeagueId);
     const isFormationValid = isValidFormation(lineup);
     const needsGoalkeeper = gkCount === 0;
     const tooManyGoalkeepers = gkCount > 1;
-    const remainingCount = getRemainingPlayerCount(players);
     
-    let html = `
+    // Calculate projected balance including planned transfers cost
+    const finalProjectedBalance = projectedBalance - plannedCost;
+    // Sort players: planned transfers first (by position), then regular players (by position)
+    const sortedPlayers = players.slice().sort((a, b) => {
+        // Planned transfers come first
+        if (a.isPlannedTransfer && !b.isPlannedTransfer) return -1;
+        if (!a.isPlannedTransfer && b.isPlannedTransfer) return 1;
+        
+        // Then sort by position: GK (1), DEF (2), MF (3), FWD (4)
+        const posA = a.pos || a.position || 0;
+        const posB = b.pos || b.position || 0;
+        return posA - posB;
+    });
+
+    const template = html`
         <div class="badge-row">
-            ${generateBalanceBadgeHTML(budget, projectedBalance, sellValue)}
+            ${generateBalanceBadgeHTML(budget, finalProjectedBalance, sellValue, plannedCost)}
             ${generateTeamValueBadgeHTML(totalValue, teamValueDiff)}
             <div class="stat-badge ${!isFormationValid ? 'invalid' : ''}">
                 <span class="badge-emoji">📋</span>
                 <span class="badge-value" id="lineup-value">${lineup}</span>
             </div>
-            ${generatePlayerCountBadgeHTML(remainingCount)}
-            ${needsGoalkeeper ? '<div class="stat-badge error-badge"><span class="badge-emoji">⚠️</span><span class="badge-value">No GK</span></div>' : ''}
-            ${tooManyGoalkeepers ? '<div class="stat-badge error-badge"><span class="badge-emoji">⚠️</span><span class="badge-value">' + gkCount + ' GKs</span></div>' : ''}
+            ${generatePlayerCountBadgeHTML(players.length)}
+            ${needsGoalkeeper ? html`<div class="stat-badge error-badge"><span class="badge-emoji">⚠️</span><span class="badge-value">No GK</span></div>` : ''}
+            ${tooManyGoalkeepers ? html`<div class="stat-badge error-badge"><span class="badge-emoji">⚠️</span><span class="badge-value">${gkCount} GKs</span></div>` : ''}
+            <button id="plan-transfer-btn" class="plan-transfer-btn" @click=${openTransferPopover}>plan transfer</button>
         </div>
         <div class="data-grid">
             <div class="grid-header">
@@ -222,65 +258,98 @@ function displayData(players, budget) {
                 <div class="grid-cell cell-player">player</div>
                 <div class="grid-cell cell-value currency">value</div>
             </div>
-    `;
-    
-    // Sort players by position: GK (1), DEF (2), MF (3), FWD (4)
-    const sortedPlayers = players.slice().sort((a, b) => {
-        const posA = a.pos || a.position || 0;
-        const posB = b.pos || b.position || 0;
-        return posA - posB;
-    });
-    
-    sortedPlayers.forEach(player => {
+
+    ${sortedPlayers.map(player => {
         const diff = player.tfhmvt || 0;
         const diffClass = diff > 0 ? 'positive' : (diff < 0 ? 'negative' : '');
         const playerId = player.i;
-        const sellStatus = getPlayerSellStatus(currentLeagueId, playerId);
-        const sellChecked = sellStatus ? 'checked' : '';
-        const s11Status = getPlayerS11Status(currentLeagueId, playerId);
-        const s11Checked = s11Status ? 'checked' : '';
+        const isSellChecked = getPlayerSellStatus(currentLeagueId, playerId);
+        const isS11Checked = getPlayerS11Status(currentLeagueId, playerId);
         
         // Map position values: 1=GK, 2=DEF, 3=MF, 4=FWD
-        const pos = player.pos || player.position;
+        const pos = player.pos;
         const posMap = { 1: 'GK', 2: 'DEF', 3: 'MF', 4: 'FWD' };
         const posLabel = posMap[pos] || '-';
         
         // Construct player image URL
         const imageUrl = player.pim ? `https://kickbase.b-cdn.net/${player.pim}` : '';
-        const imageHtml = imageUrl ? `<img src="${imageUrl}" alt="${player.n || 'Player'}" class="player-image">` : '';
+        const imageHtml = imageUrl ? html`<img src="${imageUrl}" alt="${player.n || 'Player'}" class="player-image">` : '';
         
-        
-        
-        html += `
-            <div class="grid-row">
+        // Add planned-transfer-row class if it's a planned transfer
+        const rowClass = player.isPlannedTransfer ? 'grid-row planned-transfer-row' : 'grid-row';
+        if (player.n === "Lienhart") {
+            console.log('Debugging Lienhart:', { player, isS11Checked, isSellChecked });
+        }
+        return html`
+            <div class="${rowClass}">
                 <div class="grid-cell cell-image"><div class="img-wrapper">${imageHtml}</div></div>
                 <div class="grid-cell checkbox-cell cell-s11">
-                    <input type="checkbox" ${s11Checked} onchange="togglePlayerS11Status('${currentLeagueId}', '${playerId}', this)">
+                    <input type="checkbox" .checked=${isS11Checked} class=${`s11-toggle-${playerId}`}  @change=${() => togglePlayerS11Status(currentLeagueId, playerId)}>
                 </div>
                 <div class="grid-cell checkbox-cell cell-sell">
-                    <input type="checkbox" ${sellChecked} onchange="togglePlayerSellStatus('${currentLeagueId}', '${playerId}', this)">
+                    <input type="checkbox" .checked=${isSellChecked} class=${`sell-toggle-${playerId}`} @change=${() => togglePlayerSellStatus(currentLeagueId, playerId)}>
                 </div>
                 <div class="grid-cell pos-cell cell-pos" style="color: #333; font-weight: 600;">${posLabel}</div>
                 <div class="grid-cell cell-player">
                     <div class="player-stack">
                         <span class="player-pills playerid-${player.i}">${getPlayerPills(player)}</span>
-                        <span>${player.n || 'Unknown'}</span>
+                        <span>${player.n || 'Unknown'}${player.isPlannedTransfer ? html`<button onclick="window.removePlannedTransferAndRefresh('${currentLeagueId}', '${playerId}')">X</button>` : ''}</span>
                     </div>
                 </div>
                 <div class="grid-cell currency value-cell cell-value">
                     <div class="diff-value ${diffClass}">${diff > 0 ? '+' : ''}${formatCurrency(diff)}</div>
-                    <div class="market-value">${formatCurrency(player.mv)}</div>
+                    ${player.isPlannedTransfer 
+                        ? html`<input type="number" value="${player.plannedPrice || 0}" onchange="window.updatePlannedTransferPriceAndRefresh('${currentLeagueId}', '${playerId}', this.value)">`
+                        : html`<div class="market-value">${formatCurrency(player.mv)}</div>`
+                    }
                 </div>
             </div>
         `;
-    });
-    
-    html += '</div>';
-    container.innerHTML = html;
+    })}
+    </div>`;
+    render(template, container);   
+    // Initialize transfer planner
+    initTransferPlanner(currentLeagueId);
 }
 
+// Remove a planned transfer and refresh the display
+window.removePlannedTransferAndRefresh = async (leagueId, playerId) => {
+    removePlannedTransfer(leagueId, playerId);
+    await loadAndDisplayData();
+};
+
+// Update a planned transfer price and update balance display
+window.updatePlannedTransferPriceAndRefresh = async (leagueId, playerId, newPrice) => {
+    updatePlannedTransferPrice(leagueId, playerId, newPrice);
+    await loadAndDisplayData();
+};
+
+// Refresh planned transfers when new one is added
+async function refreshPlannedTransfers() {
+    if (!currentLeagueId) return;
+    
+    try {
+        // Fetch fresh planned transfer data
+        const plannedTransferPlayers = await loadPlannedTransferPlayers(currentLeagueId);
+        
+        // Filter out existing planned transfers from currentPlayers
+        const regularPlayers = currentPlayers.filter(p => !p.isPlannedTransfer);
+        
+        // Merge planned transfers with regular players
+        currentPlayers = [...plannedTransferPlayers, ...regularPlayers];
+        
+        // Re-render the display
+        displayData(currentPlayers, currentBudget);
+    } catch (error) {
+        console.error('Error refreshing planned transfers:', error);
+    }
+}
+
+document.addEventListener('refresh-planned-transfers', refreshPlannedTransfers);
+document.addEventListener('render-player-table', () => displayData(currentPlayers, currentBudget));
+
 async function init() { 
-    try {       
+    try {
         await login();
         const leaguesData = await getLeagues();
         await showLeagueSelector(leaguesData);

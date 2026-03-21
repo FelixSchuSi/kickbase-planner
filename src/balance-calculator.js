@@ -1,3 +1,5 @@
+import {html} from '../lit-html/lit-html.js';
+
 // State registry - will be populated by app.js
 let state = {
   get currentPlayers() { return []; },
@@ -12,6 +14,7 @@ export function registerBalanceState(stateGetters) {
 
 // Import sell status from lineup calculator
 import { getPlayerSellStatus } from './lineup-calculator.js';
+import { getPlannedTransfers } from './transfer-planner.js';
 
 // Currency formatting
 export function formatCurrency(value) {
@@ -109,21 +112,25 @@ export function updateTeamValueBadge() {
 export function updatePlayerCountBadge() {
   if (state.currentPlayers.length === 0 || !state.currentLeagueId) return;
   
-  const remainingCount = getRemainingPlayerCount(state.currentPlayers);
+  const currentCount = state.currentPlayers.length;
+  const plannedTransfers = getPlannedTransfers(state.currentLeagueId);
+  const totalCount = currentCount + plannedTransfers.length;
+  
   const playersCountElement = document.getElementById('players-count');
   
   if (playersCountElement) {
-    playersCountElement.textContent = remainingCount;
+    playersCountElement.textContent = totalCount;
   }
 }
 
 // Generate balance badge HTML
-export function generateBalanceBadgeHTML(budget, projectedBalance, sellValue) {
-  const projectedBalanceHTML = sellValue > 0 
-    ? `<span class="badge-value projected" id="projected-balance">${formatCurrency(projectedBalance)}</span>`
-    : '<span class="badge-value projected" id="projected-balance" style="display: none;"></span>';
+export function generateBalanceBadgeHTML(budget, projectedBalance, sellValue, plannedCost = 0) {
+  const hasProjected = sellValue > 0 || plannedCost > 0;
+  const projectedBalanceHTML = hasProjected
+    ? html`<span class="badge-value projected" id="projected-balance">${formatCurrency(projectedBalance)}</span>`
+    : html`<span class="badge-value projected" id="projected-balance" style="display: none;"></span>`;
   
-  return `
+  return html`
     <div class="stat-badge balance-badge">
       <span class="badge-emoji">💰</span>
       <div class="balance-stack">
@@ -138,10 +145,10 @@ export function generateBalanceBadgeHTML(budget, projectedBalance, sellValue) {
 export function generateTeamValueBadgeHTML(totalValue, teamValueDiff) {
   const diffClass = teamValueDiff > 0 ? 'positive' : (teamValueDiff < 0 ? 'negative' : '');
   const diffHTML = teamValueDiff !== 0 
-    ? `<span class="badge-value diff ${diffClass}" id="team-value-diff">${teamValueDiff > 0 ? '+' : ''}${formatCurrency(teamValueDiff)}</span>`
-    : '<span class="badge-value diff" id="team-value-diff" style="display: none;"></span>';
+    ? html`<span class="badge-value diff ${diffClass}" id="team-value-diff">${teamValueDiff > 0 ? '+' : ''}${formatCurrency(teamValueDiff)}</span>`
+    : html`<span class="badge-value diff" id="team-value-diff" style="display: none;"></span>`;
   
-  return `
+  return html`
     <div class="stat-badge value-badge">
       <span class="badge-emoji">📊</span>
       <div class="value-stack">
@@ -154,7 +161,7 @@ export function generateTeamValueBadgeHTML(totalValue, teamValueDiff) {
 
 // Generate player count badge HTML
 export function generatePlayerCountBadgeHTML(count) {
-  return `
+  return html`
     <div class="stat-badge">
       <span class="badge-emoji">👥</span>
       <span class="badge-value" id="players-count">${count}</span>

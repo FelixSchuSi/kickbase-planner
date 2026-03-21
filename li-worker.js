@@ -89,7 +89,7 @@ async function fetchTeamWithRetry(teamId, url, maxRetries = 3) {
         return await getPlayers(response);
       }
 
-      console.log("error: " + url)
+      console.error("error: " + url)
       
       // If not OK and not last attempt, wait and retry
       if (attempt < maxRetries) {
