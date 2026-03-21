@@ -58,7 +58,7 @@ function getProbabilityColor(prob) {
 
 function getProbabilityIcon(prob) {
     const iconMap = {
-        1: '🟆',
+        1: '✦',
         2: '✔',
         3: '?',
         4: '!',
@@ -83,7 +83,7 @@ export { getLiCategoryColor };
 
 function getLiCategoryText(category) {
     const textMap = {
-        "certainPlayers": 'LI 🟆',
+        "certainPlayers": 'LI ✦',
         "playersWithAlternative": 'LI ✔ >',
         "playersFirstAlternative": '< LI ?',
         "playersSecondAlternative": '<< LI ?',
