@@ -203,33 +203,35 @@ export function getKickbasePredictionUrl(teamId) {
 }
 
 export function getPlayerPills(player) {
-  const kbPillHtml = html`<a
-    href="${kickbasePredictions.get(player.tid) || "#"}"
-    target="_blank"
-    style="text-decoration: none;"
-    ><span
-      class="prob-pill"
-      style="background-color: ${getProbabilityColor(player.prob)};"
-      >KB ${getProbabilityIcon(player.prob)}</span
-    ></a
-  >`;
+  const kbPredictionUrl = kickbasePredictions.get(player.tid);
+  const kbLoading = kbPredictionUrl == undefined;
+
+  const kbPillHtml = html`
+    <a href=${kbPredictionUrl} target="_blank" style="text-decoration: none;">
+      <span
+        class="prob-pill  ${kbLoading ? "loading" : ""}"
+        style="background-color: ${getProbabilityColor(player.prob)};"
+        >KB ${getProbabilityIcon(player.prob)}
+      </span>
+    </a>
+  `;
   const ligainsiderCategory = getPlayerLigainsiderCategory(
     player.n,
     player.tid,
   );
 
-  let liLoading = false;
-  if (ligainsiderCategory === null) liLoading = true;
-  let liPillHtml = html`<a
+  let liLoading = ligainsiderCategory === null;
+  let liPillHtml = html` <a
     href="${teamLigainsiderMap.get(parseInt(player.tid)) || "#"}"
     target="_blank"
     style="text-decoration: none;"
-    ><span
+  >
+    <span
       class="prob-pill li-pill ${liLoading ? "loading" : ""}"
       style="background-color: ${getLiCategoryColor(ligainsiderCategory)};"
-      >${getLiCategoryText(ligainsiderCategory)}</span
-    ></a
-  >`;
+      >${getLiCategoryText(ligainsiderCategory)}
+    </span>
+  </a>`;
 
   return html`${kbPillHtml}${liPillHtml}`;
 }

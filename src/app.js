@@ -207,9 +207,6 @@ async function loadAndDisplayData() {
       getBudget(currentLeagueId),
     ]);
 
-    // Fetch team predictions (don't block display on this)
-    fetchKickbasePredictions(getAuthToken(), API_BASE_URL);
-
     // Load planned transfers and merge with current players
     const plannedTransferPlayers =
       await loadPlannedTransferPlayers(currentLeagueId);
@@ -218,9 +215,15 @@ async function loadAndDisplayData() {
 
     // Render immediately with Kickbase data only (fast initial load)
     displayData(currentPlayers, budget);
-    // Then fetch Ligainsider data asynchronously and update UI
-    await fetchLigainsiderPredictions();
-    displayData(currentPlayers, budget);
+
+    await Promise.all([
+      fetchKickbasePredictions(getAuthToken(), API_BASE_URL).then(() =>
+        displayData(currentPlayers, budget),
+      ),
+      fetchLigainsiderPredictions().then(() =>
+        displayData(currentPlayers, budget),
+      ),
+    ]);
   } catch (error) {
     showError(error.message);
   }
@@ -257,7 +260,6 @@ function displayData(players, budget) {
     const posB = b.pos || b.position || 0;
     return posA - posB;
   });
-  console.log(sortedPlayers);
   const template = html`
     <div class="badge-row">
       ${generateBalanceBadgeHTML(
@@ -389,7 +391,7 @@ function displayData(players, budget) {
                 ${player.isPlannedTransfer
                   ? html`<input type="number" value=${player.plannedPrice || 0} @change=${(e) => updatePlannedTransferPriceAndRefresh(currentLeagueId, playerId, e)}> </input> `
                   : html`<div class="market-value">
-                      ${formatCurrency(player.mv)}>
+                      ${formatCurrency(player.mv)}
                     </div>`}
               </div>
             </div>
