@@ -1,26 +1,27 @@
-import { render, html } from '../lit-html/lit-html.js';
-import { getAuthToken } from './auth.js';
-import { addPlannedTransfer } from './transfer-planner.js';
+import { render, html, nothing } from "../lit-html/lit-html.js";
+import { getAuthToken } from "./auth.js";
+import { addPlannedTransfer } from "./transfer-planner.js";
 
 // Configuration
-const API_BASE_URL = 'https://api.kickbase.com/v4';
-const COMPETITION_ID = '1';
+const API_BASE_URL = "https://api.kickbase.com/v4";
+const COMPETITION_ID = "1";
 const MAX_RESULTS = 5;
 
 // State
 let currentLeagueId = null;
 let searchTimeout = null;
+let searchResultsDiv;
 
 // Initialize the transfer planner
 export function initTransferPlanner(leagueId) {
-    currentLeagueId = leagueId;
-    setupPopover();
+  currentLeagueId = leagueId;
+  setupPopover();
 }
 
 // Setup the popover element
 function setupPopover() {
-    let popover = document.getElementById('transfer-popover');
-    const popoverHTML = html`
+  let popover = document.getElementById("transfer-popover");
+  const popoverHTML = html`
         <div class="popover-content">
             <div class="popover-header">
                 <h3>plan transfer</h3>
@@ -39,151 +40,173 @@ function setupPopover() {
             </div>
         </div>
     `;
-    render(popoverHTML, popover);
-       
-    // Close popover when clicking outside
-    popover.addEventListener('click', (e) => {
-        if (e.target === popover) {
-            closeTransferPopover();
-        }
-    });
-    
-    // Close on Escape key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            closeTransferPopover();
-        }
-    });
+  render(popoverHTML, popover);
+
+  // Close popover when clicking outside
+  popover.addEventListener("click", (e) => {
+    if (e.target === popover) {
+      closeTransferPopover();
+    }
+  });
+
+  // Close on Escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeTransferPopover();
+    }
+  });
 }
 
 // Open the popover
 export function openTransferPopover() {
-    const popover = document.getElementById('transfer-popover');
-    if (popover) {
-        popover.style.display = 'flex';
-        document.getElementById('player-search-input').focus();
-    }
+  const popover = document.getElementById("transfer-popover");
+  if (popover) {
+    popover.style.display = "flex";
+    document.getElementById("player-search-input").focus();
+  }
 }
 
 // Close the popover (make it globally accessible)
-window.closeTransferPopover = function() {
-    const popover = document.getElementById('transfer-popover');
-    if (popover) {
-        popover.style.display = 'none';
-        // Clear search
-        document.getElementById('player-search-input').value = '';
-        document.getElementById('search-results').innerHTML = '';
-    }
-};
+function closeTransferPopover() {
+  const popover = document.getElementById("transfer-popover");
+  if (popover) {
+    popover.style.display = "none";
+    // Clear search
+    document.getElementById("player-search-input").value = "";
+    renderSearchResults(nothing);
+  }
+}
 
 // Handle search input with debounce
 function handleSearchInput(e) {
-    const query = e.target.value.trim();
-    
-    // Clear previous timeout
-    if (searchTimeout) {
-        clearTimeout(searchTimeout);
-    }
-    
-    // Clear results if empty
-    if (!query) {
-        document.getElementById('search-results').innerHTML = '';
-        return;
-    }
-    
-    // Debounce search
-    searchTimeout = setTimeout(() => {
-        searchPlayers(query);
-    }, 300);
+  const query = e.target.value.trim();
+
+  // Clear previous timeout
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+
+  // Clear results if empty
+  if (!query) {
+    renderSearchResults(nothing);
+    return;
+  }
+
+  // Debounce search
+  searchTimeout = setTimeout(() => {
+    searchPlayers(query);
+  }, 300);
 }
 
 // Search players via API
 async function searchPlayers(query) {
-    if (!currentLeagueId) {
-        console.error('No league ID available');
-        return;
+  if (!currentLeagueId) {
+    console.error("No league ID available");
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/competitions/${COMPETITION_ID}/players/search?leagueId=${currentLeagueId}&query=${encodeURIComponent(query)}&max=${MAX_RESULTS}`,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Search failed: ${response.status}`);
     }
-    
-    try {
-        const response = await fetch(
-            `${API_BASE_URL}/competitions/${COMPETITION_ID}/players/search?leagueId=${currentLeagueId}&query=${encodeURIComponent(query)}&max=${MAX_RESULTS}`,
-            {
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': `Bearer ${getAuthToken()}`
-                }
-            }
-        );
-        
-        if (!response.ok) {
-            throw new Error(`Search failed: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        displaySearchResults(data.it || []);
-    } catch (error) {
-        console.error('Error searching players:', error);
-        document.getElementById('search-results').innerHTML = 
-            '<div class="search-error">Search failed. Please try again.</div>';
-    }
+
+    const data = await response.json();
+    displaySearchResults(data.it || []);
+  } catch (error) {
+    console.error("Error searching players:", error);
+    renderSearchResults(
+      html`<div class="search-error">Search failed. Please try again.</div>`,
+    );
+  }
 }
 
 // Display search results
 function displaySearchResults(players) {
-    const resultsContainer = document.getElementById('search-results');
-    
-    if (players.length === 0) {
-        render(html`<div class="no-results">No players found</div>`, resultsContainer);
-        return;
-    }
-    
-    // Position mapping
-    const posMap = { 1: 'GK', 2: 'DEF', 3: 'MF', 4: 'FWD' };
-    
-    // Format currency function
-    const formatCurrency = (value) => {
-        if (!value && value !== 0) return '-';
-        return new Intl.NumberFormat('de-DE', {
-            style: 'currency',
-            currency: 'EUR',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(value).replace('EUR', '€');
-    };
-    
-    const playerHtml = players.map(player => {
-        const imageUrl = player.pim ? `https://kickbase.b-cdn.net/${player.pim}` : '';
-        const imageHtml = imageUrl ? html`<img src="${imageUrl}" alt="${player.n || 'Player'}" class="result-image">` : '';
-        const posLabel = posMap[player.pos] || '-';
-        const ownerName = player.onm || 'Kickbase';
-        const marketValue = formatCurrency(player.mv);
-        
-        return html`
-            <div class="search-result-item" onclick="selectTransferPlayer(${JSON.stringify(player).replace(/"/g, '&quot;')})">
-                <div class="result-image-wrapper">${imageHtml}</div>
-                <div class="result-info">
-                    <div class="result-name">${player.n || 'Unknown'}</div>
-                    <div class="result-details">
-                        <span class="result-position">${posLabel}</span>
-                        <span class="result-owner">${ownerName}</span>
-                        <span class="result-value">${marketValue}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
+  if (players.length === 0) {
+    renderSearchResults(html`<div class="no-results">No players found</div>`);
+    return;
+  }
 
-    render(html`${playerHtml}`, resultsContainer);
+  // Position mapping
+  const posMap = { 1: "GK", 2: "DEF", 3: "MF", 4: "FWD" };
+
+  // Format currency function
+  const formatCurrency = (value) => {
+    if (!value && value !== 0) return "-";
+    return new Intl.NumberFormat("de-DE", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })
+      .format(value)
+      .replace("EUR", "€");
+  };
+
+  const playerHtml = html`${players.map((player) => {
+    const imageUrl = player.pim
+      ? `https://kickbase.b-cdn.net/${player.pim}`
+      : "";
+    const imageHtml = imageUrl
+      ? html`<img
+          src="${imageUrl}"
+          alt="${player.n || "Player"}"
+          class="result-image"
+        />`
+      : "";
+    const posLabel = posMap[player.pos] || "-";
+    const ownerName = player.onm || "Kickbase";
+    const marketValue = formatCurrency(player.mv);
+
+    return html`
+      <div
+        class="search-result-item"
+        @click=${() => selectTransferPlayer(player)}
+      >
+        <div class="result-image-wrapper">${imageHtml}</div>
+        <div class="result-info">
+          <div class="result-name">${player.n || "Unknown"}</div>
+          <div class="result-details">
+            <span class="result-position">${posLabel}</span>
+            <span class="result-owner">${ownerName}</span>
+            <span class="result-value">${marketValue}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  })}`;
+
+  renderSearchResults(playerHtml);
+}
+
+function renderSearchResults(template) {
+  if (template === undefined) render(nothing, searchResultsDiv);
+  if (searchResultsDiv === null || searchResultsDiv === undefined) {
+    searchResultsDiv = document.getElementById("search-results");
+  }
+  render(template, searchResultsDiv);
 }
 
 // Handle player selection (make it globally accessible)
-window.selectTransferPlayer = function(player) {
-    // Save the planned transfer with default price = market value
-    addPlannedTransfer(currentLeagueId, player.pi, player.mv);
-    
-    // Close popover
-    window.closeTransferPopover();
-    
-    // Refresh the display to show the new planned transfer
-    document.dispatchEvent(new CustomEvent('refresh-planned-transfers'));
-};
+function selectTransferPlayer(player) {
+  // Save the planned transfer with default price = market value
+  addPlannedTransfer(currentLeagueId, player.pi, player.mv);
+
+  // Close popover
+  closeTransferPopover();
+
+  // Refresh the display to show the new planned transfer
+  document.dispatchEvent(new CustomEvent("refresh-planned-transfers"));
+}
+
+// TODO: handle price change for planned transfers

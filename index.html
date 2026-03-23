@@ -1,30 +1,46 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>kickbase-planner 📈</title>
-    <link rel="stylesheet" href="src/styles.css">
+    <link rel="stylesheet" href="src/styles.css" />
     <link rel="icon" href="src/favicon.svg" />
-</head>
-<body>
+    <link rel="modulepreload" href="lit-html/lit-html.js" />
+    <link rel="modulepreload" href="lit-html/directive.js" />
+    <link rel="modulepreload" href="lit-html/directive-helpers.js" />
+    <link rel="modulepreload" href="lit-html/directives/repeat.js" />
+    <link rel="modulepreload" href="src/app.js" />
+    <link rel="modulepreload" href="src/auth.js" />
+    <link rel="modulepreload" href="src/balance-calculator.js" />
+    <link rel="modulepreload" href="src/fetch-kickbase-player-details.js" />
+    <link rel="modulepreload" href="src/lineup-calculator.js" />
+    <link rel="modulepreload" href="src/s11-predictions.js" />
+    <link rel="modulepreload" href="src/transfer-planner.js" />
+    <link rel="modulepreload" href="src/transfer-player-ui.js" />
+  </head>
+  <body>
     <div class="container">
-        <div class="header-fullwidth-wrapper">
-            <div class="header">
-                <h1>kickbase-planner 📈</h1>
-                <div id="league-selector" class="league-selector">
-                    <select id="league-select">
-                        <option value="">-- Select a league --</option>
-                    </select>
-                </div>
-            </div>
+      <div class="header-fullwidth-wrapper">
+        <div class="header">
+          <h1>kickbase-planner 📈</h1>
+          <div id="league-selector" class="league-selector">
+            <select id="league-select">
+              <option value="">-- Select a league --</option>
+            </select>
+          </div>
         </div>
-        <div class="content">
-            <div id="error" class="error" style="display: none;"></div>
-            <div id="data-container"></div>
-        </div>
+      </div>
+      <div class="content">
+        <div id="error" class="error" style="display: none"></div>
+        <div id="data-container"></div>
+      </div>
     </div>
-    <div id="transfer-popover" class="transfer-popover" style="display: none;"></div>
+    <div
+      id="transfer-popover"
+      class="transfer-popover"
+      style="display: none"
+    ></div>
     <script type="module" src="src/app.js"></script>
-</body>
+  </body>
 </html>
