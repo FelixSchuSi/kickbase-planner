@@ -22,24 +22,26 @@ export function initTransferPlanner(leagueId) {
 function setupPopover() {
   let popover = document.getElementById("transfer-popover");
   const popoverHTML = html`
-        <div class="popover-content">
-            <div class="popover-header">
-                <h3>plan transfer</h3>
-                <button class="close-btn" @click=${closeTransferPopover}">&times;</button>
-            </div>
-            <div class="popover-body">
-                <input 
-                    type="text" 
-                    id="player-search-input" 
-                    class="player-search-input" 
-                    placeholder="Search for a player..." 
-                    autocomplete="off"
-                    @input=${handleSearchInput}
-                >
-                <div id="search-results" class="search-results"></div>
-            </div>
-        </div>
-    `;
+    <div class="popover-content">
+      <div class="popover-header">
+        <h3>plan transfer</h3>
+        <button class="close-btn" @click=${() => closeTransferPopover()}>
+          &times;
+        </button>
+      </div>
+      <div class="popover-body">
+        <input
+          type="text"
+          id="player-search-input"
+          class="player-search-input"
+          placeholder="Search for a player..."
+          autocomplete="off"
+          @input=${handleSearchInput}
+        />
+        <div id="search-results" class="search-results"></div>
+      </div>
+    </div>
+  `;
   render(popoverHTML, popover);
 
   // Close popover when clicking outside
