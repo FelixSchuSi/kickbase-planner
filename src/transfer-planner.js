@@ -1,22 +1,5 @@
 import { fetchKickbasePlayerDetails } from "./fetch-kickbase-player-details.js";
-
-// State registry - will be populated by app.js
-let state = {
-  get currentPlayers() {
-    return [];
-  },
-  get currentLeagueId() {
-    return null;
-  },
-  get currentBudget() {
-    return 0;
-  },
-};
-
-// Register state getters from app.js
-export function registerPlannedTransferState(stateGetters) {
-  state = stateGetters;
-}
+import { getPlayerSellStatus } from "./lineup-calculator.js";
 
 // Get the localStorage key for planned transfers of a league
 function getPlannedTransfersKey(leagueId) {

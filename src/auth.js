@@ -35,12 +35,8 @@ export function clearStoredAuth() {
 }
 
 export function getCredentials() {
-  const username =
-    localStorage.getItem("KB_EMAIL") ||
-    prompt("Kickbase E-Mail eingeben:") ||
-    "";
-  const password =
-    localStorage.getItem("KB_PASSWORD") || prompt("Kickbase Passwort:") || "";
+  const username = prompt("Kickbase E-Mail eingeben:") || "";
+  const password = prompt("Kickbase Passwort:") || "";
 
   return { username, password };
 }
@@ -78,7 +74,5 @@ export async function login() {
   const data = await response.json();
   setAuthToken(data.tkn);
   localStorage.setItem("KB_TOKEN_EXPIRE", data.tknex);
-  localStorage.setItem("KB_EMAIL", username);
-  localStorage.setItem("KB_PASSWORD", password);
   return;
 }

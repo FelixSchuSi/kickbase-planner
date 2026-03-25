@@ -1,6 +1,5 @@
 import { html, render } from "../lit-html/lit-html.js";
 import { repeat } from "../lit-html/directives/repeat.js";
-
 import { getAuthToken, login } from "./auth.js";
 import {
   fetchLigainsiderPredictions,
@@ -31,10 +30,7 @@ import {
   openTransferPopover,
 } from "./transfer-player-ui.js";
 import {
-  addPlannedTransfer,
   loadPlannedTransferPlayers,
-  getPlannedTransfers,
-  registerPlannedTransferState,
   removePlannedTransfer,
   updatePlannedTransferPrice,
   calculatePlannedTransfersCost,
@@ -64,19 +60,6 @@ registerLineupState({
 
 // Register state with balance calculator
 registerBalanceState({
-  get currentPlayers() {
-    return currentPlayers;
-  },
-  get currentLeagueId() {
-    return currentLeagueId;
-  },
-  get currentBudget() {
-    return currentBudget;
-  },
-});
-
-// Register state with planned transfers module
-registerPlannedTransferState({
   get currentPlayers() {
     return currentPlayers;
   },
@@ -154,26 +137,25 @@ async function getBudget(leagueId) {
 async function showLeagueSelector(leaguesData) {
   leagues = leaguesData;
   const selector = document.getElementById("league-selector");
-  const select = document.getElementById("league-select");
+  const selectElement = document.getElementById("league-select");
 
-  if (!selector || !select) {
+  if (!selector || !selectElement) {
     console.error("League selector elements not found");
     return;
   }
-
-  select.innerHTML = '<option value="">-- Select a league --</option>';
-
-  leagues.forEach((league) => {
-    const option = document.createElement("option");
-    option.value = league.id;
-    option.textContent = league.name;
-    select.appendChild(option);
-  });
+  render(
+    html`
+      ${leagues.map(
+        (league) => html` <option value=${league.id}>${league.name}</option> `,
+      )}
+    `,
+    selectElement,
+  );
 
   // Add change listener if not already added
-  select.onchange = async () => {
-    if (select.value) {
-      localStorage.setItem("KB_SELECTED_LEAGUE_ID", select.value);
+  selectElement.onchange = async () => {
+    if (selectElement.value) {
+      localStorage.setItem("KB_SELECTED_LEAGUE_ID", selectElement.value);
       await loadSelectedLeague();
     }
   };
@@ -181,7 +163,7 @@ async function showLeagueSelector(leaguesData) {
   const savedLeagueId = localStorage.getItem("KB_SELECTED_LEAGUE_ID");
 
   if (savedLeagueId && leagues.find((l) => l.id === savedLeagueId)) {
-    select.value = savedLeagueId;
+    selectElement.value = savedLeagueId;
     await loadSelectedLeague();
   }
 }
@@ -260,6 +242,7 @@ function displayData(players, budget) {
     const posB = b.pos || b.position || 0;
     return posA - posB;
   });
+
   const template = html`
     <div class="badge-row">
       ${generateBalanceBadgeHTML(
@@ -377,8 +360,9 @@ function displayData(players, budget) {
                               currentLeagueId,
                               playerId,
                             )}
+                          class="remove-planned-transfer-button"
                         >
-                          X
+                          x
                         </button>`
                       : ""}</span
                   >
@@ -389,7 +373,7 @@ function displayData(players, budget) {
                   ${diff > 0 ? "+" : ""}${formatCurrency(diff)}
                 </div>
                 ${player.isPlannedTransfer
-                  ? html`<input type="number" value=${player.plannedPrice || 0} @change=${(e) => updatePlannedTransferPriceAndRefresh(currentLeagueId, playerId, e)}> </input> `
+                  ? html`<input type="number" value=${player.plannedPrice} placeholder=${player.mv} @change=${(e) => updatePlannedTransferPriceAndRefresh(currentLeagueId, playerId, e)}> </input> `
                   : html`<div class="market-value">
                       ${formatCurrency(player.mv)}
                     </div>`}
