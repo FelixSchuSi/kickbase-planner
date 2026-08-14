@@ -44,6 +44,9 @@ const teamLigainsiderMap = new Map([
   [50, "https://www.ligainsider.de/1-fc-heidenheim/1259/"], // Heidenheim
   [28, "https://www.ligainsider.de/1-fc-koeln/15/"], // Köln
   [6, "https://www.ligainsider.de/hamburger-sv/9/"], // Hamburg
+  [29, "https://www.ligainsider.de/sc-paderborn-07/1249/"], // Paderborn
+  [8, "https://www.ligainsider.de/fc-schalke-04/13/"], // Schalke
+  [77, "https://www.ligainsider.de/sv-07-elversberg/1331/"], // Elversberg
 ]);
 
 function getProbabilityColor(prob) {
