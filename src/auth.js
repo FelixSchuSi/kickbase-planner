@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "./app.js";
+import { API_BASE_URL } from "./config.js";
 // Auth state
 let authToken = localStorage.getItem("KB_TOKEN");
 

@@ -1,9 +1,9 @@
 import { render, html, nothing } from "../lit-html/lit-html.js";
 import { getAuthToken } from "./auth.js";
 import { addPlannedTransfer } from "./transfer-planner.js";
+import { API_BASE_URL } from "./config.js";
 
 // Configuration
-const API_BASE_URL = "https://api.kickbase.com/v4";
 const COMPETITION_ID = "1";
 const MAX_RESULTS = 5;
 

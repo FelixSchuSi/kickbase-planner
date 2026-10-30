@@ -1,0 +1,10 @@
+name = "kickbase-worker"
+main = "kickbase-worker.js"
+compatibility_date = "2026-03-14"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGINS = "https://felixschusi.github.io,http://localhost:8000,http://127.0.0.1:8000"
+
+[dev]
+port = 8788

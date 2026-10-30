@@ -1,6 +1,7 @@
 import { html, render } from "../lit-html/lit-html.js";
 import { repeat } from "../lit-html/directives/repeat.js";
 import { getAuthToken, login } from "./auth.js";
+import { API_BASE_URL } from "./config.js";
 import {
   fetchLigainsiderPredictions,
   fetchKickbasePredictions,
@@ -35,9 +36,6 @@ import {
   updatePlannedTransferPrice,
   calculatePlannedTransfersCost,
 } from "./transfer-planner.js";
-
-// Configuration
-export const API_BASE_URL = "https://api.kickbase.com/v4";
 
 // State
 let leagues = [];

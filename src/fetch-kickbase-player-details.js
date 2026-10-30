@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "./app.js";
+import { API_BASE_URL } from "./config.js";
 import { getAuthToken } from "./auth.js";
 
 export async function fetchKickbasePlayerDetails(leagueId, playerId) {
