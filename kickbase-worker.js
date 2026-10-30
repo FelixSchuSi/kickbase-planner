@@ -56,9 +56,14 @@ export default {
         method: request.method,
         headers: upstreamHeaders,
         body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
-        redirect: "error",
+        redirect: "manual",
         cache: "no-store",
       });
+
+      // Workers only supports "manual" and "follow" redirect modes.
+      if ([301, 302, 303, 307, 308].includes(upstream.status)) {
+        throw new Error(`Kickbase API returned an unexpected redirect (HTTP ${upstream.status})`);
+      }
 
       for (const name of ["Content-Type", "Retry-After", "WWW-Authenticate"]) {
         const value = upstream.headers.get(name);
@@ -70,9 +75,22 @@ export default {
         statusText: upstream.statusText,
         headers,
       });
-    } catch {
+    } catch (error) {
+      const details = {
+        name: error?.name || "Error",
+        message: error?.message || String(error),
+        ...(error?.cause != null && {
+          cause: error.cause.message || String(error.cause),
+        }),
+      };
+      console.error("Kickbase proxy request failed", {
+        method: request.method,
+        path: upstreamUrl.pathname,
+        ...details,
+        stack: error?.stack,
+      });
       headers.set("Content-Type", "application/json");
-      return new Response(JSON.stringify({ error: "Unable to reach Kickbase API" }), {
+      return new Response(JSON.stringify({ error: "Unable to reach Kickbase API", details }), {
         status: 502,
         headers,
       });

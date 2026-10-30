@@ -39,7 +39,7 @@ test("login forwards JSON and returns the token with CORS and no caching", async
     assert.equal(options.headers.get("Origin"), null);
     assert.equal(options.headers.get("Cookie"), null);
     assert.equal(await new Response(options.body).text(), body);
-    assert.equal(options.redirect, "error");
+    assert.equal(options.redirect, "manual");
     assert.equal(options.cache, "no-store");
     return Response.json({ tkn: "test-token" }, {
       headers: { "Cache-Control": "public, max-age=3600", "Set-Cookie": "secret=value" },
@@ -98,6 +98,28 @@ test("rejects other origins, non-API paths, and unsupported methods before fetch
   assert.equal(upstream.mock.callCount(), 0);
 });
 
+test("upstream redirects return a readable error instead of redirecting the browser", async (t) => {
+  t.mock.method(console, "error", () => {});
+  const upstream = t.mock.method(globalThis, "fetch", async (url, options) => {
+    assert.equal(options.redirect, "manual");
+    return new Response(null, {
+      status: 302,
+      headers: { Location: "https://other.example/login" },
+    });
+  });
+  const response = await worker.fetch(new Request(`${proxyUrl}/user/login`, {
+    method: "POST",
+    headers: { Origin: origin },
+    body: "{}",
+  }), env);
+  assert.equal(upstream.mock.callCount(), 1);
+  assert.equal(response.status, 502);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
+  assert.equal(response.headers.get("Location"), null);
+  assert.equal((await response.json()).details.message,
+    "Kickbase API returned an unexpected redirect (HTTP 302)");
+});
+
 test("network failures return a readable CORS-enabled 502", async (t) => {
   t.mock.method(globalThis, "fetch", async () => {
     throw new Error("Network failure");
@@ -107,5 +129,8 @@ test("network failures return a readable CORS-enabled 502", async (t) => {
   }), env);
   assert.equal(response.status, 502);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
-  assert.deepEqual(await response.json(), { error: "Unable to reach Kickbase API" });
+  assert.deepEqual(await response.json(), {
+    error: "Unable to reach Kickbase API",
+    details: { name: "Error", message: "Network failure" },
+  });
 });
