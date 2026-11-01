@@ -2,6 +2,16 @@
 
 ## local development
 
+Start or restart the frontend and both backend workers together:
+
+```bash
+./dev.sh
+```
+
+They run in the background on ports 8000, 8787, and 8788. Open
+`http://localhost:8000`; logs are in `.dev/*.log`. Run the script again to
+restart them. Requires Bash, Python 3, Node/npm, `lsof`, and `setsid` (Linux).
+
 ### frontend
 
 ```bash

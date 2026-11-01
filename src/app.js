@@ -193,11 +193,16 @@ async function loadAndDisplayData() {
     currentPlayers = [...plannedTransferPlayers, ...players];
     currentBudget = budget;
 
-    // Render immediately with Kickbase data only (fast initial load)
+    const kickbasePredictionsPromise = fetchKickbasePredictions(
+      getAuthToken(),
+      API_BASE_URL,
+    );
+
+    // Render immediately while lineup predictions load in the background.
     displayData(currentPlayers, budget);
 
     await Promise.all([
-      fetchKickbasePredictions(getAuthToken(), API_BASE_URL).then(() =>
+      kickbasePredictionsPromise.then(() =>
         displayData(currentPlayers, budget),
       ),
       fetchLigainsiderPredictions().then(() =>

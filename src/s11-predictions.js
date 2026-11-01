@@ -7,7 +7,8 @@ const LIGAINSIDER_WORKER_URL =
     : "https://li-worker.better-kickbase.workers.dev/";
 
 // State
-const kickbasePredictions = new Map(); // Stores teamId -> plpim mapping
+const kickbasePredictions = new Map(); // Stores teamId -> lineup image URL
+let kickbasePredictionsLoading = false;
 const ligainsiderData = new Map(); // Stores teamId -> probability data
 
 // Cache for fetched player probabilities (session-only, not persisted)
@@ -169,55 +170,73 @@ function getPlayerLigainsiderCategory(playerName, teamId) {
   return "";
 }
 
+function storeKickbasePrediction(teamId, data) {
+  const paths = [
+    ...(Array.isArray(data.plpims) ? data.plpims : []),
+    data.plpim,
+  ];
+  const imagePath = paths.find(
+    (path) => typeof path === "string" && path.trim(),
+  );
+  if (teamId && imagePath) {
+    kickbasePredictions.set(
+      teamId.toString(),
+      new URL(imagePath, "https://kickbase.b-cdn.net/").href,
+    );
+  }
+}
+
 export async function fetchKickbasePredictions(authToken, apiBaseUrl) {
+  kickbasePredictionsLoading = true;
+  kickbasePredictions.clear();
+  const headers = {
+    Accept: "application/json",
+    Authorization: `Bearer ${authToken}`,
+  };
   try {
     const response = await fetch(`${apiBaseUrl}/base/predictions/teams/1`, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${authToken}`,
-      },
+      headers,
     });
-
     if (!response.ok) {
       console.error(`Failed to fetch team predictions: ${response.status}`);
       return;
     }
 
     const data = await response.json();
-    kickbasePredictions.clear();
-
-    if (data.tms) {
-      data.tms.forEach((team) => {
-        if (team.tid && team.plpim) {
-          kickbasePredictions.set(
-            team.tid,
-            `https://kickbase.b-cdn.net/${team.plpim}`,
-          );
-        }
-      });
+    for (const team of data.tms || []) {
+      storeKickbasePrediction(team.tid, team);
     }
   } catch (error) {
     console.error("Error fetching team predictions:", error);
+  } finally {
+    kickbasePredictionsLoading = false;
   }
 }
 
 export function getKickbasePredictionUrl(teamId) {
-  return kickbasePredictions.get(teamId) || null;
+  return kickbasePredictions.get(teamId?.toString()) || null;
 }
 
 export function getPlayerPills(player) {
-  const kbPredictionUrl = kickbasePredictions.get(player.tid);
-  const kbLoading = kbPredictionUrl == undefined;
+  const kbPredictionUrl = getKickbasePredictionUrl(player.tid);
 
-  const kbPillHtml = html`
-    <a href=${kbPredictionUrl} target="_blank" style="text-decoration: none;">
-      <span
-        class="prob-pill  ${kbLoading ? "loading" : ""}"
-        style="background-color: ${getProbabilityColor(player.prob)};"
-        >KB ${getProbabilityIcon(player.prob)}
-      </span>
-    </a>
+  const kbPill = html`
+    <span
+      class="prob-pill ${kickbasePredictionsLoading ? "loading" : ""}"
+      title=${kickbasePredictionsLoading
+        ? "Loading Kickbase lineup…"
+        : kbPredictionUrl
+          ? "View Kickbase predicted lineup"
+          : "Kickbase lineup image unavailable"}
+      style="background-color: ${getProbabilityColor(player.prob)};"
+      >KB ${getProbabilityIcon(player.prob)}
+    </span>
   `;
+  const kbPillHtml = kbPredictionUrl
+    ? html`<a href=${kbPredictionUrl} target="_blank" style="text-decoration: none;"
+        >${kbPill}</a
+      >`
+    : kbPill;
   const ligainsiderCategory = getPlayerLigainsiderCategory(
     player.n,
     player.tid,
